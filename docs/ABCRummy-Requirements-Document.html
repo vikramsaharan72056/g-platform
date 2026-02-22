@@ -1,0 +1,888 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ABCRummy — Project Requirements Document</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+  
+  :root {
+    --primary: #1a1a2e;
+    --accent: #e94560;
+    --accent2: #0f3460;
+    --gold: #d4a853;
+    --text: #2d2d2d;
+    --text-light: #666;
+    --bg: #ffffff;
+    --border: #e0e0e0;
+    --success: #27ae60;
+    --warning: #f39c12;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  @page {
+    size: A4;
+    margin: 20mm 18mm;
+  }
+
+  body {
+    font-family: 'Inter', -apple-system, sans-serif;
+    color: var(--text);
+    background: var(--bg);
+    font-size: 11px;
+    line-height: 1.6;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .cover-page {
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+    color: white;
+    page-break-after: always;
+    margin: -20mm -18mm;
+    padding: 40mm 30mm;
+  }
+
+  .cover-page .logo-area {
+    width: 100px; height: 100px;
+    border: 3px solid var(--gold);
+    border-radius: 20px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 36px; font-weight: 800;
+    margin-bottom: 30px;
+    background: rgba(212,168,83,0.1);
+    color: var(--gold);
+  }
+
+  .cover-page h1 {
+    font-size: 42px; font-weight: 800;
+    background: linear-gradient(135deg, #d4a853, #f0d78c);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    margin-bottom: 10px;
+  }
+
+  .cover-page .subtitle {
+    font-size: 18px; color: rgba(255,255,255,0.7);
+    margin-bottom: 50px; font-weight: 300;
+  }
+
+  .cover-page .meta-table {
+    text-align: left; font-size: 13px;
+    border-top: 1px solid rgba(255,255,255,0.2);
+    padding-top: 30px;
+  }
+
+  .cover-page .meta-table td {
+    padding: 6px 20px;
+    color: rgba(255,255,255,0.6);
+  }
+
+  .cover-page .meta-table td:last-child {
+    color: rgba(255,255,255,0.9); font-weight: 500;
+  }
+
+  .cover-page .confidential {
+    position: absolute; bottom: 40px;
+    font-size: 10px; color: rgba(255,255,255,0.3);
+    text-transform: uppercase; letter-spacing: 3px;
+  }
+
+  h2 {
+    font-size: 20px; font-weight: 700;
+    color: var(--primary);
+    border-bottom: 3px solid var(--accent);
+    padding-bottom: 8px;
+    margin: 30px 0 15px 0;
+    page-break-after: avoid;
+  }
+
+  h2 .section-num {
+    color: var(--accent);
+    margin-right: 8px;
+  }
+
+  h3 {
+    font-size: 14px; font-weight: 600;
+    color: var(--accent2);
+    margin: 18px 0 8px 0;
+    page-break-after: avoid;
+  }
+
+  h4 {
+    font-size: 12px; font-weight: 600;
+    color: var(--text);
+    margin: 12px 0 6px 0;
+  }
+
+  p { margin-bottom: 8px; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 10px 0 15px 0;
+    font-size: 10.5px;
+    page-break-inside: avoid;
+  }
+
+  th {
+    background: var(--primary);
+    color: white;
+    padding: 8px 10px;
+    text-align: left;
+    font-weight: 600;
+    font-size: 10px;
+  }
+
+  td {
+    padding: 7px 10px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  tr:nth-child(even) { background: #f8f9fa; }
+
+  .toc {
+    page-break-after: always;
+  }
+
+  .toc h2 { border-bottom-color: var(--gold); }
+
+  .toc ol {
+    list-style: none;
+    counter-reset: toc;
+    padding: 0;
+  }
+
+  .toc ol li {
+    counter-increment: toc;
+    padding: 10px 0;
+    border-bottom: 1px solid #eee;
+    font-size: 13px;
+  }
+
+  .toc ol li::before {
+    content: counter(toc, decimal-leading-zero) ".";
+    color: var(--accent);
+    font-weight: 700;
+    margin-right: 10px;
+    font-size: 14px;
+  }
+
+  .highlight-box {
+    background: linear-gradient(135deg, #f8f4ff, #eff6ff);
+    border-left: 4px solid var(--accent2);
+    padding: 12px 16px;
+    margin: 12px 0;
+    border-radius: 0 6px 6px 0;
+    page-break-inside: avoid;
+  }
+
+  .highlight-box.gold {
+    background: linear-gradient(135deg, #fdf8ee, #fef9e7);
+    border-left-color: var(--gold);
+  }
+
+  .highlight-box.red {
+    background: linear-gradient(135deg, #fef0f0, #fff5f5);
+    border-left-color: var(--accent);
+  }
+
+  .game-card {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px;
+    margin: 10px 0;
+    page-break-inside: avoid;
+  }
+
+  .game-card .game-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+  }
+
+  .game-card .game-icon {
+    width: 36px; height: 36px;
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+    background: var(--primary);
+  }
+
+  .game-card .game-name {
+    font-weight: 700;
+    font-size: 13px;
+    color: var(--primary);
+  }
+
+  .game-card .game-type {
+    font-size: 10px;
+    color: var(--text-light);
+  }
+
+  .flow-step {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    margin: 8px 0;
+    page-break-inside: avoid;
+  }
+
+  .flow-step .step-num {
+    width: 24px; height: 24px; flex-shrink: 0;
+    background: var(--accent);
+    color: white;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 700;
+  }
+
+  .flow-step .step-content {
+    flex: 1;
+    padding-top: 2px;
+  }
+
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 9px;
+    font-weight: 600;
+  }
+
+  .badge-green { background: #e8f5e9; color: #2e7d32; }
+  .badge-yellow { background: #fff8e1; color: #f57f17; }
+  .badge-red { background: #ffebee; color: #c62828; }
+  .badge-blue { background: #e3f2fd; color: #1565c0; }
+
+  .two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+  }
+
+  .arch-box {
+    background: #f5f7fa;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 15px;
+    margin: 12px 0;
+    text-align: center;
+    font-family: 'Courier New', monospace;
+    font-size: 10px;
+    line-height: 1.5;
+    white-space: pre;
+    page-break-inside: avoid;
+  }
+
+  .sign-section {
+    margin-top: 60px;
+    page-break-inside: avoid;
+  }
+
+  .sign-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 60px;
+    margin-top: 40px;
+  }
+
+  .sign-box {
+    border-top: 2px solid var(--text);
+    padding-top: 8px;
+  }
+
+  .sign-box p {
+    font-size: 10px;
+    color: var(--text-light);
+  }
+
+  ul, ol { padding-left: 20px; margin: 6px 0; }
+  li { margin-bottom: 4px; }
+
+  .page-break { page-break-before: always; }
+
+  @media print {
+    .cover-page {
+      margin: -20mm -18mm;
+      padding: 40mm 30mm;
+    }
+  }
+</style>
+</head>
+<body>
+
+<!-- ==================== COVER PAGE ==================== -->
+<div class="cover-page">
+  <div class="logo-area">AR</div>
+  <h1>ABCRummy</h1>
+  <div class="subtitle">Gaming Platform — Project Requirements Document</div>
+  <table class="meta-table">
+    <tr><td>Document Type</td><td>Requirements Specification & Execution Plan</td></tr>
+    <tr><td>Version</td><td>1.0</td></tr>
+    <tr><td>Date</td><td>February 21, 2026</td></tr>
+    <tr><td>Status</td><td>Ready for Approval</td></tr>
+    <tr><td>Total Pages</td><td>~18</td></tr>
+  </table>
+  <div class="confidential">Confidential — For Internal Use Only</div>
+</div>
+
+<!-- ==================== TABLE OF CONTENTS ==================== -->
+<div class="toc">
+  <h2>Table of Contents</h2>
+  <ol>
+    <li>Executive Summary</li>
+    <li>Project Scope & Deliverables</li>
+    <li>System Architecture</li>
+    <li>Technology Stack</li>
+    <li>Game Catalog (7 Games)</li>
+    <li>User Module — Authentication & Profile</li>
+    <li>Wallet & Payment System</li>
+    <li>Admin Panel — Complete Control Center</li>
+    <li>Platform Systems (Bonus, Referrals, Anti-Fraud, Security)</li>
+    <li>Database Design Summary</li>
+    <li>Development Timeline & Milestones</li>
+    <li>Risk Assessment</li>
+    <li>Sign-Off</li>
+  </ol>
+</div>
+
+<!-- ==================== SECTION 1 ==================== -->
+<h2><span class="section-num">01</span> Executive Summary</h2>
+
+<p><strong>ABCRummy</strong> is a mobile-first, real-time gaming platform offering <strong>7 skill-based and luck-based games</strong> to Android users. The platform operates on a <strong>time-period (round) based</strong> model where each game runs in fixed-duration rounds with automated lifecycle management.</p>
+
+<div class="highlight-box gold">
+  <strong>Core Business Model:</strong> Users deposit funds via QR scanner-based payments, place bets on timed game rounds, and request admin-verified withdrawals. The platform earns revenue through house edge built into game odds.
+</div>
+
+<table>
+  <tr><th style="width:35%">Attribute</th><th>Detail</th></tr>
+  <tr><td>Platform</td><td>Android Mobile App (React Native)</td></tr>
+  <tr><td>Total Games</td><td>7 (5 defined + 2 reserved for future)</td></tr>
+  <tr><td>Game Model</td><td>Time-period based — timed rounds with betting windows</td></tr>
+  <tr><td>Authentication</td><td>Email/Password + Two-Factor Authentication (TOTP)</td></tr>
+  <tr><td>Deposits</td><td>QR Code Scanner Based (user scans → pays → submits proof)</td></tr>
+  <tr><td>Withdrawals</td><td>Admin verification based (manual approval)</td></tr>
+  <tr><td>Admin Panel</td><td>Web dashboard with game controls, analytics, user management</td></tr>
+  <tr><td>Target Concurrent Users</td><td>10,000+ simultaneous connections</td></tr>
+</table>
+
+<!-- ==================== SECTION 2 ==================== -->
+<h2><span class="section-num">02</span> Project Scope & Deliverables</h2>
+
+<table>
+  <tr><th>#</th><th>Deliverable</th><th>Type</th><th>Description</th></tr>
+  <tr><td>1</td><td>Android Mobile App</td><td>React Native APK</td><td>Full gaming app with all 7 games, wallet, profile, QR deposit</td></tr>
+  <tr><td>2</td><td>Backend API Server</td><td>NestJS Application</td><td>REST APIs + WebSocket for real-time gameplay, auth, wallet, admin</td></tr>
+  <tr><td>3</td><td>Admin Panel</td><td>React Web App</td><td>Dashboard, user mgmt, deposit/withdrawal queue, game controls, analytics</td></tr>
+  <tr><td>4</td><td>Database</td><td>PostgreSQL + Redis</td><td>Primary data store + caching/real-time game state</td></tr>
+  <tr><td>5</td><td>Documentation</td><td>Technical Docs</td><td>API docs, deployment guide, admin manual</td></tr>
+</table>
+
+<h3>Out of Scope (V1)</h3>
+<ul>
+  <li>iOS application (future phase)</li>
+  <li>Payment gateway integration (manual QR-based for V1)</li>
+  <li>Multi-language support</li>
+  <li>Live dealer games</li>
+</ul>
+
+<!-- ==================== SECTION 3 ==================== -->
+<h2><span class="section-num">03</span> System Architecture</h2>
+
+<div class="arch-box">
+┌─────────────────────────────────────────────────────────┐
+│                    CLIENT LAYER                          │
+│   ┌──────────────┐          ┌──────────────────┐        │
+│   │ Android App  │          │ Admin Panel (Web)│        │
+│   │ React Native │          │ React.js         │        │
+│   └──────┬───────┘          └────────┬─────────┘        │
+└──────────┼──────────────────────────┼───────────────────┘
+           │ HTTPS / WSS             │ HTTPS
+           ▼                         ▼
+┌──────────────────────────────────────────────────────────┐
+│              NestJS BACKEND SERVER                        │
+│  ┌─────────┐ ┌──────┐ ┌────────┐ ┌──────────────────┐   │
+│  │  Auth   │ │ User │ │ Wallet │ │   Game Engine    │   │
+│  │  + 2FA  │ │      │ │        │ │ (7 Game Modules) │   │
+│  └─────────┘ └──────┘ └────────┘ └──────────────────┘   │
+│  ┌──────────────┐  ┌────────────┐  ┌────────────────┐   │
+│  │   Deposit    │  │ Withdrawal │  │  Admin Module  │   │
+│  │  (QR Based)  │  │(Verified)  │  │  (Controls)    │   │
+│  └──────────────┘  └────────────┘  └────────────────┘   │
+└───────────┬──────────────┬──────────────┬────────────────┘
+            ▼              ▼              ▼
+     ┌────────────┐ ┌────────────┐ ┌──────────────┐
+     │ PostgreSQL │ │   Redis    │ │ Cloud Storage│
+     │ (Primary)  │ │(Cache/PubS)│ │ (S3/Images)  │
+     └────────────┘ └────────────┘ └──────────────┘</div>
+
+<!-- ==================== SECTION 4 ==================== -->
+<h2><span class="section-num">04</span> Technology Stack</h2>
+
+<div class="two-col">
+  <div>
+    <h3>Mobile App (Android)</h3>
+    <table>
+      <tr><th>Component</th><th>Technology</th></tr>
+      <tr><td>Framework</td><td>React Native</td></tr>
+      <tr><td>State Management</td><td>Zustand</td></tr>
+      <tr><td>Real-time</td><td>Socket.IO Client</td></tr>
+      <tr><td>QR Scanner</td><td>React Native Camera</td></tr>
+      <tr><td>Animations</td><td>Reanimated v3</td></tr>
+      <tr><td>Storage</td><td>MMKV (Encrypted)</td></tr>
+    </table>
+  </div>
+  <div>
+    <h3>Backend Server</h3>
+    <table>
+      <tr><th>Component</th><th>Technology</th></tr>
+      <tr><td>Runtime</td><td>Node.js v20 LTS</td></tr>
+      <tr><td>Framework</td><td>NestJS</td></tr>
+      <tr><td>Database</td><td>PostgreSQL 16</td></tr>
+      <tr><td>ORM</td><td>Prisma</td></tr>
+      <tr><td>Cache</td><td>Redis 7</td></tr>
+      <tr><td>2FA</td><td>Speakeasy (TOTP)</td></tr>
+    </table>
+  </div>
+</div>
+
+<!-- ==================== SECTION 5 ==================== -->
+<div class="page-break"></div>
+<h2><span class="section-num">05</span> Game Catalog (7 Games)</h2>
+
+<p>All games follow a common <strong>time-period based round lifecycle</strong>:</p>
+
+<div class="highlight-box">
+  <strong>Round Lifecycle:</strong> WAITING → BETTING (users place bets) → LOCKED (bets finalized) → PLAYING (game animation) → RESULT (outcome shown) → SETTLED (payouts credited) → Next Round
+</div>
+
+<!-- Game 1 -->
+<div class="game-card">
+  <div class="game-header">
+    <div class="game-icon">🃏</div>
+    <div><div class="game-name">Game 1: Teen Patti</div><div class="game-type">Card Game • 60-90s rounds • Unlimited players</div></div>
+    <span class="badge badge-green">DEFINED</span>
+  </div>
+  <p>Indian 3-card poker. System deals two hands (Player A vs Player B). Users bet on which hand wins. Hand rankings: Trail > Pure Sequence > Sequence > Color > Pair > High Card.</p>
+  <table>
+    <tr><th>Bet Type</th><th>Payout</th><th>Bet Type</th><th>Payout</th></tr>
+    <tr><td>Player A Wins</td><td>1.95x</td><td>Player A Pair+</td><td>3.5x</td></tr>
+    <tr><td>Player B Wins</td><td>1.95x</td><td>Player B Pair+</td><td>3.5x</td></tr>
+    <tr><td>Tie</td><td>25x</td><td>Any Trail</td><td>50x</td></tr>
+  </table>
+</div>
+
+<!-- Game 2 -->
+<div class="game-card">
+  <div class="game-header">
+    <div class="game-icon">✈️</div>
+    <div><div class="game-name">Game 2: Aviator</div><div class="game-type">Crash Game • 15-60s rounds • Unlimited players</div></div>
+    <span class="badge badge-green">DEFINED</span>
+  </div>
+  <p>Multiplier starts at 1.00x and rises. Can crash at any moment. Players must cash out before the crash. Real-time multiplier broadcast via WebSocket every 100ms. Supports manual and auto-cashout.</p>
+  <p><strong>Payout:</strong> Whatever multiplier the player cashed out at (e.g., cash out at 2.5x → bet ₹100 → win ₹250)</p>
+</div>
+
+<!-- Game 3 -->
+<div class="game-card">
+  <div class="game-header">
+    <div class="game-icon">🎲</div>
+    <div><div class="game-name">Game 3: 7 Up Down</div><div class="game-type">Dice Game • 30-45s rounds • Unlimited players</div></div>
+    <span class="badge badge-green">DEFINED</span>
+  </div>
+  <p>Two dice rolled. Total determines outcome: Under 7 (Down), Exactly 7 (Lucky 7), or Over 7 (Up).</p>
+  <table>
+    <tr><th>Bet Type</th><th>Condition</th><th>Probability</th><th>Payout</th></tr>
+    <tr><td>Down</td><td>Total 2-6</td><td>41.67%</td><td>2.00x</td></tr>
+    <tr><td>Lucky 7</td><td>Total = 7</td><td>16.67%</td><td>5.00x</td></tr>
+    <tr><td>Up</td><td>Total 8-12</td><td>41.67%</td><td>2.00x</td></tr>
+  </table>
+</div>
+
+<!-- Game 4 -->
+<div class="game-card">
+  <div class="game-header">
+    <div class="game-icon">🐉</div>
+    <div><div class="game-name">Game 4: Dragon & Tiger</div><div class="game-type">Card Game • 25-30s rounds • Unlimited players</div></div>
+    <span class="badge badge-green">DEFINED</span>
+  </div>
+  <p>Simplest card game — one card for Dragon, one for Tiger. Higher card wins. Side bets on odd/even and red/black for each position.</p>
+  <table>
+    <tr><th>Bet Type</th><th>Payout</th><th>Bet Type</th><th>Payout</th></tr>
+    <tr><td>Dragon Wins</td><td>1.95x</td><td>Dragon Odd/Even</td><td>1.90x</td></tr>
+    <tr><td>Tiger Wins</td><td>1.95x</td><td>Tiger Odd/Even</td><td>1.90x</td></tr>
+    <tr><td>Tie</td><td>11x</td><td>Red/Black (either)</td><td>1.90x</td></tr>
+  </table>
+</div>
+
+<!-- Game 5 -->
+<div class="game-card">
+  <div class="game-header">
+    <div class="game-icon">♠️</div>
+    <div><div class="game-name">Game 5: Poker (Texas Hold'em)</div><div class="game-type">Card Game • 60-120s rounds • Unlimited players</div></div>
+    <span class="badge badge-green">DEFINED</span>
+  </div>
+  <p>Simplified Texas Hold'em. System deals hole cards to Player A & B plus 5 community cards (revealed in phases: Flop → Turn → River). Users bet on which player wins.</p>
+  <table>
+    <tr><th>Bet Type</th><th>Payout</th><th>Bet Type</th><th>Payout</th></tr>
+    <tr><td>Player A Wins</td><td>1.95x</td><td>Any Full House+</td><td>8x</td></tr>
+    <tr><td>Player B Wins</td><td>1.95x</td><td>Any Four of a Kind+</td><td>30x</td></tr>
+    <tr><td>Tie</td><td>20x</td><td>Royal Flush</td><td>500x</td></tr>
+  </table>
+</div>
+
+<!-- Games 6 & 7 -->
+<div class="two-col">
+  <div class="game-card">
+    <div class="game-header">
+      <div class="game-icon" style="background:#666;">6</div>
+      <div><div class="game-name">Game 6: TBD</div><div class="game-type">To be decided</div></div>
+      <span class="badge badge-yellow">PENDING</span>
+    </div>
+    <p>Slot reserved. Suggestions: Andar Bahar, Color Prediction, Mines, Lucky Wheel</p>
+  </div>
+  <div class="game-card">
+    <div class="game-header">
+      <div class="game-icon" style="background:#666;">7</div>
+      <div><div class="game-name">Game 7: TBD</div><div class="game-type">To be decided</div></div>
+      <span class="badge badge-yellow">PENDING</span>
+    </div>
+    <p>Slot reserved. Suggestions: Roulette, Plinko, Blackjack, Hi-Lo, Ludo</p>
+  </div>
+</div>
+
+<!-- ==================== SECTION 6 ==================== -->
+<div class="page-break"></div>
+<h2><span class="section-num">06</span> User Module — Authentication & Profile</h2>
+
+<h3>Authentication Flow</h3>
+<div class="flow-step"><div class="step-num">1</div><div class="step-content"><strong>Registration:</strong> Email + Password + Display Name. Wallet auto-created. Welcome bonus credited.</div></div>
+<div class="flow-step"><div class="step-num">2</div><div class="step-content"><strong>Login:</strong> Email + Password → JWT token issued. If 2FA enabled → temporary token → user enters TOTP code → full token issued.</div></div>
+<div class="flow-step"><div class="step-num">3</div><div class="step-content"><strong>2FA Setup:</strong> User enables 2FA → QR code generated (Google Authenticator / Authy compatible) → user confirms code → 10 backup codes provided.</div></div>
+<div class="flow-step"><div class="step-num">4</div><div class="step-content"><strong>Password Recovery:</strong> Forgot password → email with reset link → set new password.</div></div>
+
+<h3>User Profile Features</h3>
+<ul>
+  <li>Display name, avatar upload, phone number</li>
+  <li>2FA enable/disable</li>
+  <li>KYC status (optional, admin-triggered)</li>
+  <li>Game statistics (total games, win rate, etc.)</li>
+  <li>Login history with device info</li>
+  <li>Self-imposed gaming limits (daily deposit/bet/loss limits)</li>
+</ul>
+
+<!-- ==================== SECTION 7 ==================== -->
+<h2><span class="section-num">07</span> Wallet & Payment System</h2>
+
+<h3>Wallet Structure</h3>
+<div class="highlight-box">
+  <strong>Dual Balance:</strong> Main Balance (withdrawable after turnover) + Bonus Balance (play-only, not withdrawable). Bets deduct from Bonus first, then Main. Winnings always go to Main Balance.
+</div>
+
+<h3>A. Deposit Flow (QR Scanner Based)</h3>
+<div class="flow-step"><div class="step-num">1</div><div class="step-content">User opens deposit screen → sees admin-managed payment QR codes (UPI/Bank)</div></div>
+<div class="flow-step"><div class="step-num">2</div><div class="step-content">User scans QR code using any UPI app and makes payment externally</div></div>
+<div class="flow-step"><div class="step-num">3</div><div class="step-content">User returns to app → enters amount, UTR number → uploads payment screenshot</div></div>
+<div class="flow-step"><div class="step-num">4</div><div class="step-content">Request enters admin deposit queue for verification</div></div>
+<div class="flow-step"><div class="step-num">5</div><div class="step-content">Admin verifies UTR against bank statement → approves/rejects</div></div>
+<div class="flow-step"><div class="step-num">6</div><div class="step-content">On approval: wallet credited instantly + user notified via push notification</div></div>
+
+<h3>B. Withdrawal Flow (Admin Verified)</h3>
+<div class="flow-step"><div class="step-num">1</div><div class="step-content">User submits withdrawal request with amount + payout details (UPI ID or bank account)</div></div>
+<div class="flow-step"><div class="step-num">2</div><div class="step-content"><strong>Turnover check:</strong> Total bets must be ≥ total deposits × turnover factor (e.g., 1x)</div></div>
+<div class="flow-step"><div class="step-num">3</div><div class="step-content">Amount deducted from wallet immediately (prevents double-withdrawal)</div></div>
+<div class="flow-step"><div class="step-num">4</div><div class="step-content">Request enters admin withdrawal queue with fraud flags auto-calculated</div></div>
+<div class="flow-step"><div class="step-num">5</div><div class="step-content">Admin reviews user profile, flags, bet history → approves/rejects/holds</div></div>
+<div class="flow-step"><div class="step-num">6</div><div class="step-content">On approval: admin makes manual payment → uploads proof → user notified</div></div>
+
+<h3>Fraud Flags (Auto-Detected on Withdrawal)</h3>
+<table>
+  <tr><th>Flag</th><th>Trigger</th><th>Severity</th></tr>
+  <tr><td>Rapid Deposit-Withdraw</td><td>Deposit and withdrawal within 1 hour</td><td><span class="badge badge-red">HIGH</span></td></tr>
+  <tr><td>Low Bet Volume</td><td>Withdrawal amount > total bet volume</td><td><span class="badge badge-yellow">MEDIUM</span></td></tr>
+  <tr><td>Suspicious Win Rate</td><td>Win rate > 90% over 50+ rounds</td><td><span class="badge badge-red">HIGH</span></td></tr>
+  <tr><td>New Account</td><td>First withdrawal within 24h of signup</td><td><span class="badge badge-yellow">MEDIUM</span></td></tr>
+  <tr><td>Multiple UPIs</td><td>Different UPI IDs used for withdrawals</td><td><span class="badge badge-yellow">MEDIUM</span></td></tr>
+</table>
+
+<!-- ==================== SECTION 8 ==================== -->
+<div class="page-break"></div>
+<h2><span class="section-num">08</span> Admin Panel — Complete Control Center</h2>
+
+<p>Web-based dashboard accessible only to ADMIN and SUPER_ADMIN roles.</p>
+
+<h3>A. Dashboard</h3>
+<p>Real-time overview: total users, active users, revenue (today/week/month), pending deposits & withdrawals, house P&L. Charts: revenue trend, user growth, game-wise split, bet volume by hour.</p>
+
+<h3>B. User Management</h3>
+<p>Searchable user list with filters. User detail page with wallet, bet history, transactions, login history. Actions: suspend, ban, activate, credit/debit balance, reset password, reset 2FA, force logout.</p>
+
+<h3>C. Deposit Queue</h3>
+<p>Real-time queue of pending deposit requests. Review page shows payment screenshot, UTR, user details. One-click approve or reject with remarks.</p>
+
+<h3>D. Withdrawal Queue</h3>
+<p>Queue with auto-calculated fraud flags. Review page shows user profile summary, deposit-to-withdrawal ratio, bet volume, account age. Approve with payment reference, reject with reason, or put on hold.</p>
+
+<h3>E. Game Management</h3>
+<p>View all games with status, active players, 24h P&L. Configure per game: min/max bet, round duration, betting window, house edge. Toggle active/maintenance mode.</p>
+
+<h3>F. Game Controls (Result Override) — SUPER_ADMIN Only</h3>
+<div class="highlight-box red">
+  <strong>⚠️ Most critical admin feature.</strong> All actions are logged in audit trail with admin ID, timestamp, and reason.
+</div>
+<table>
+  <tr><th>Control Type</th><th>Description</th><th>Example</th></tr>
+  <tr><td><strong>Force Result</strong></td><td>Set exact outcome for next round</td><td>Force Player A to win in Teen Patti</td></tr>
+  <tr><td><strong>Win Rate Control</strong></td><td>Set target win percentages over time</td><td>Aviator: 60% crash below 2x</td></tr>
+  <tr><td><strong>Player Limit</strong></td><td>Cap winnings for a specific user</td><td>User XYZ max win ₹1,000/day</td></tr>
+  <tr><td><strong>Bet Limits Override</strong></td><td>Change min/max bet per game</td><td>Increase Poker max bet to ₹50,000</td></tr>
+</table>
+
+<h3>G. Analytics</h3>
+<ul>
+  <li><strong>Revenue:</strong> Total revenue by period, by game, by payment method, profit margins</li>
+  <li><strong>Game:</strong> Round count, bet volume, win/loss distribution, house edge (theoretical vs actual), peak hours</li>
+  <li><strong>User:</strong> DAU/WAU/MAU, lifetime value, churn rate, deposit-to-bet conversion</li>
+  <li><strong>Risk:</strong> Unusual win patterns, high-roller tracking, suspicious activity</li>
+</ul>
+
+<h3>H. Other Admin Modules</h3>
+<ul>
+  <li><strong>Payment QR Management:</strong> Add/edit/disable payment QR codes with daily limits</li>
+  <li><strong>System Settings:</strong> Min/max deposit, withdrawal limits, turnover factor, maintenance mode</li>
+  <li><strong>Bonus Management:</strong> Create/edit promotions, view claims, set turnover requirements</li>
+  <li><strong>Banner/Popup Management:</strong> Home screen banners, announcements, push notifications</li>
+  <li><strong>Audit Logs:</strong> Complete trail of every admin action (exportable as CSV)</li>
+  <li><strong>Live Game Monitor:</strong> Real-time view of active rounds, bet distribution, live bet stream</li>
+</ul>
+
+<!-- ==================== SECTION 9 ==================== -->
+<div class="page-break"></div>
+<h2><span class="section-num">09</span> Platform Systems</h2>
+
+<h3>A. Bonus & Promotion Engine</h3>
+<table>
+  <tr><th>Bonus Type</th><th>Trigger</th><th>Value</th><th>Turnover Req.</th></tr>
+  <tr><td>Welcome Bonus</td><td>Registration</td><td>₹50-100 flat</td><td>3x</td></tr>
+  <tr><td>First Deposit Bonus</td><td>First deposit</td><td>100% match up to ₹500</td><td>5x</td></tr>
+  <tr><td>Daily Login Reward</td><td>Daily login streak</td><td>₹5 (Day 1) to ₹50 (Day 7)</td><td>1x</td></tr>
+  <tr><td>Cashback</td><td>Weekly net losses</td><td>5-10% of losses</td><td>1x</td></tr>
+  <tr><td>Referral Bonus</td><td>Friend deposits</td><td>₹100 to referrer</td><td>2x</td></tr>
+</table>
+
+<h3>B. Referral System</h3>
+<p>Each user gets a unique referral code/link. When a referred user signs up and makes their first deposit, the referrer earns a bonus. Optional: lifetime commission (1-2% of referral's bet volume).</p>
+
+<h3>C. VIP Loyalty Tiers</h3>
+<table>
+  <tr><th>Tier</th><th>Monthly Volume</th><th>Cashback</th><th>Withdrawal Priority</th></tr>
+  <tr><td>🥉 Bronze</td><td>₹0 - ₹10K</td><td>0%</td><td>Standard (24-48h)</td></tr>
+  <tr><td>🥈 Silver</td><td>₹10K - ₹50K</td><td>2%</td><td>Priority (< 12h)</td></tr>
+  <tr><td>🥇 Gold</td><td>₹50K - ₹2L</td><td>5%</td><td>Fast (< 6h)</td></tr>
+  <tr><td>💎 Diamond</td><td>₹2L+</td><td>10%</td><td>Instant</td></tr>
+</table>
+
+<h3>D. Anti-Fraud & Security</h3>
+<ul>
+  <li><strong>Multi-Account Detection:</strong> Device fingerprinting, IP tracking, disposable email blocking</li>
+  <li><strong>Bonus Abuse Prevention:</strong> Turnover requirements, pattern detection</li>
+  <li><strong>Bot Detection:</strong> Timing analysis, behavioral patterns</li>
+  <li><strong>Risk Scoring:</strong> Automated 0-100 risk score per user with auto-actions</li>
+  <li><strong>Connection Recovery:</strong> Full game state sync on reconnect — no bets or winnings lost</li>
+  <li><strong>Single Device Policy:</strong> Login on new device auto-logouts previous device</li>
+</ul>
+
+<h3>E. House Bankroll Management</h3>
+<p>Platform bankroll tracked in real-time. Per-round exposure calculated (worst-case payout). Auto-alerts when exposure exceeds thresholds. Games auto-pause if bankroll drops below reserve.</p>
+
+<h3>F. Responsible Gaming</h3>
+<ul>
+  <li>Self-imposed daily limits (deposit, bet, loss)</li>
+  <li>Self-exclusion (24h, 7d, 30d, 6 months, permanent)</li>
+  <li>Reality check popups every 60 minutes of play</li>
+  <li>Cool-down period after big losses</li>
+</ul>
+
+<!-- ==================== SECTION 10 ==================== -->
+<h2><span class="section-num">10</span> Database Design Summary</h2>
+
+<table>
+  <tr><th>Model</th><th>Purpose</th><th>Key Relationships</th></tr>
+  <tr><td>User</td><td>Player & admin accounts</td><td>1:1 Wallet, 1:N Bets, 1:N Transactions</td></tr>
+  <tr><td>Wallet</td><td>Balance, bonus, totals</td><td>1:1 User, 1:N Transactions</td></tr>
+  <tr><td>Transaction</td><td>All money movements</td><td>N:1 User, N:1 Wallet</td></tr>
+  <tr><td>Game</td><td>7 game definitions</td><td>1:N GameRound, 1:N AdminControl</td></tr>
+  <tr><td>GameRound</td><td>Individual timed rounds</td><td>N:1 Game, 1:N Bet, 1:N RoundResult</td></tr>
+  <tr><td>Bet</td><td>User bets on rounds</td><td>N:1 User, N:1 GameRound</td></tr>
+  <tr><td>RoundResult</td><td>Game outcome data</td><td>N:1 GameRound</td></tr>
+  <tr><td>GameAdminControl</td><td>Result overrides, win rates</td><td>N:1 Game</td></tr>
+  <tr><td>DepositRequest</td><td>QR-based deposit queue</td><td>N:1 User, N:1 PaymentQR</td></tr>
+  <tr><td>WithdrawalRequest</td><td>Admin-verified withdrawals</td><td>N:1 User</td></tr>
+  <tr><td>PaymentQR</td><td>Admin-managed QR codes</td><td>1:N DepositRequest</td></tr>
+  <tr><td>Bonus / BonusClaim</td><td>Promotions & claims</td><td>1:N Claims per Bonus</td></tr>
+  <tr><td>Referral</td><td>Referral tracking</td><td>N:1 User (referrer & referee)</td></tr>
+  <tr><td>AuditLog</td><td>Admin action trail</td><td>N:1 User (admin)</td></tr>
+  <tr><td>Notification</td><td>Push notifications</td><td>N:1 User</td></tr>
+</table>
+
+<!-- ==================== SECTION 11 ==================== -->
+<div class="page-break"></div>
+<h2><span class="section-num">11</span> Development Timeline & Milestones</h2>
+
+<div class="highlight-box gold">
+  <strong>Total Estimated Timeline: 20-24 weeks (5-6 months)</strong><br>
+  Team Size: 5-6 developers (1 lead, 1-2 backend, 1 mobile, 1 frontend, 1 QA)
+</div>
+
+<table>
+  <tr><th>Phase</th><th>Duration</th><th>Key Deliverables</th><th>Milestone</th></tr>
+  <tr>
+    <td><strong>Phase 0</strong><br>Project Setup</td>
+    <td>1 week</td>
+    <td>Repo, boilerplate, Docker, CI/CD, dev environment</td>
+    <td>✅ Dev environment running</td>
+  </tr>
+  <tr>
+    <td><strong>Phase 1</strong><br>Core Infrastructure</td>
+    <td>3 weeks</td>
+    <td>Auth + 2FA, user profile, wallet, deposit/withdrawal, WebSocket gateway</td>
+    <td>✅ User can register, deposit, withdraw</td>
+  </tr>
+  <tr>
+    <td><strong>Phase 2</strong><br>Game Engine + First 4 Games</td>
+    <td>4 weeks</td>
+    <td>Base game engine, Teen Patti, Aviator, 7 Up Down, Dragon Tiger, admin controls</td>
+    <td>✅ 4 games playable with admin override</td>
+  </tr>
+  <tr>
+    <td><strong>Phase 3</strong><br>Remaining Games + Hardening</td>
+    <td>4 weeks</td>
+    <td>Poker, bonus engine, referral system, performance optimization, analytics</td>
+    <td>✅ All 5 games + bonus system live</td>
+  </tr>
+  <tr>
+    <td><strong>Phase 4</strong><br>Admin Panel</td>
+    <td>4 weeks</td>
+    <td>Full admin dashboard, game controls UI, analytics charts, audit logs</td>
+    <td>✅ Admin can manage everything</td>
+  </tr>
+  <tr>
+    <td><strong>Phase 5</strong><br>Mobile App</td>
+    <td>4 weeks</td>
+    <td>Android app with all games, animations, QR scanner, push notifications</td>
+    <td>✅ APK ready for testing</td>
+  </tr>
+  <tr>
+    <td><strong>Phase 6</strong><br>Testing & Launch</td>
+    <td>2-4 weeks</td>
+    <td>E2E testing, security audit, load testing, bug fixes, production deployment</td>
+    <td>✅ Production launch</td>
+  </tr>
+</table>
+
+<!-- ==================== SECTION 12 ==================== -->
+<h2><span class="section-num">12</span> Risk Assessment</h2>
+
+<table>
+  <tr><th>Risk</th><th>Probability</th><th>Impact</th><th>Mitigation Strategy</th></tr>
+  <tr>
+    <td>Wallet race conditions (double-spend)</td>
+    <td><span class="badge badge-yellow">Medium</span></td>
+    <td><span class="badge badge-red">Critical</span></td>
+    <td>Optimistic locking, DB transactions, idempotency keys</td>
+  </tr>
+  <tr>
+    <td>WebSocket scalability under load</td>
+    <td><span class="badge badge-yellow">Medium</span></td>
+    <td><span class="badge badge-red">High</span></td>
+    <td>Redis adapter for pub/sub, load testing early, horizontal scaling</td>
+  </tr>
+  <tr>
+    <td>Payment fraud</td>
+    <td><span class="badge badge-red">High</span></td>
+    <td><span class="badge badge-red">High</span></td>
+    <td>Turnover requirements, fraud flags, KYC, daily limits</td>
+  </tr>
+  <tr>
+    <td>Game logic bugs (incorrect payouts)</td>
+    <td><span class="badge badge-yellow">Medium</span></td>
+    <td><span class="badge badge-red">Critical</span></td>
+    <td>Extensive unit tests, audit logs, manual testing of all edge cases</td>
+  </tr>
+  <tr>
+    <td>App performance on low-end Android</td>
+    <td><span class="badge badge-yellow">Medium</span></td>
+    <td><span class="badge badge-yellow">Medium</span></td>
+    <td>Use Reanimated v3, test on budget devices, optimize animations</td>
+  </tr>
+  <tr>
+    <td>Regulatory / legal compliance</td>
+    <td><span class="badge badge-red">High</span></td>
+    <td><span class="badge badge-red">Critical</span></td>
+    <td>Legal consultation, Terms of Service, responsible gaming features</td>
+  </tr>
+</table>
+
+<!-- ==================== SECTION 13 ==================== -->
+<div class="page-break"></div>
+<h2><span class="section-num">13</span> Sign-Off</h2>
+
+<p>This document confirms that we have thoroughly understood the project requirements for <strong>ABCRummy Gaming Platform</strong> and are ready to proceed with development as outlined in the execution plan above.</p>
+
+<div class="highlight-box gold">
+  <strong>Included in this specification:</strong>
+  <ul>
+    <li>Complete system architecture and technology stack</li>
+    <li>Detailed specifications for all 7 games with bet types and payouts</li>
+    <li>User authentication with 2FA, wallet system, QR-based deposits, admin-verified withdrawals</li>
+    <li>Full admin panel with game result controls, analytics, and user management</li>
+    <li>Bonus engine, referral system, VIP tiers, anti-fraud measures</li>
+    <li>Connection recovery, time synchronization, and concurrency handling</li>
+    <li>20-24 week development timeline with phase-wise milestones</li>
+    <li>Complete database schema with 15+ models</li>
+  </ul>
+</div>
+
+<p><strong>Pending Items (Require Client Input):</strong></p>
+<ul>
+  <li>Game 6 and Game 7 selection</li>
+  <li>Exact bet limit amounts (adjustable via admin panel post-launch)</li>
+  <li>Branding assets (logo, colors, fonts)</li>
+  <li>Legal documents (Terms of Service, Privacy Policy content)</li>
+</ul>
+
+<div class="sign-section">
+  <h3>Authorization</h3>
+  <div class="sign-row">
+    <div class="sign-box">
+      <p><strong>Client Representative</strong></p>
+      <p>Name: ________________________________</p>
+      <p>Date: ________________________________</p>
+      <p>Signature: ___________________________</p>
+    </div>
+    <div class="sign-box">
+      <p><strong>Development Team Lead</strong></p>
+      <p>Name: ________________________________</p>
+      <p>Date: ________________________________</p>
+      <p>Signature: ___________________________</p>
+    </div>
+  </div>
+</div>
+
+<br><br>
+<p style="text-align:center; color: #999; font-size: 9px;">
+  ABCRummy — Project Requirements Document v1.0 | February 21, 2026 | Confidential
+</p>
+
+</body>
+</html>
