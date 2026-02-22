@@ -1,0 +1,24 @@
+{
+  "name": "abcrummy",
+  "version": "1.0.0",
+  "private": true,
+  "description": "ABCRummy Gaming Platform - Monorepo",
+  "workspaces": [
+    "packages/api",
+    "packages/admin"
+  ],
+  "scripts": {
+    "api:dev": "cd packages/api && npm run start:dev",
+    "api:build": "cd packages/api && npm run build",
+    "admin:dev": "cd packages/admin && npm run dev",
+    "admin:build": "cd packages/admin && npm run build",
+    "db:migrate": "cd packages/api && npx prisma migrate dev",
+    "db:seed": "cd packages/api && npx prisma db seed",
+    "db:studio": "cd packages/api && npx prisma studio",
+    "docker:up": "docker-compose -f docker/docker-compose.yml up -d",
+    "docker:down": "docker-compose -f docker/docker-compose.yml down"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
