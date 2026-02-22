@@ -76,3 +76,38 @@ export const gamesAPI = {
     list: () => api.get('/games/admin/all'),
     stats: (id: string) => api.get(`/games/admin/${id}/stats`),
 };
+
+// ==================== ADMIN GAME CONTROLS ====================
+export const gameControlsAPI = {
+    dashboard: () => api.get('/admin/games/dashboard'),
+    revenueChart: (days?: number) =>
+        api.get('/admin/games/revenue-chart', { params: { days } }),
+    gameAnalytics: (gameId: string, days?: number) =>
+        api.get(`/admin/games/${gameId}/analytics`, { params: { days } }),
+    updateConfig: (gameId: string, config: any) =>
+        api.patch(`/admin/games/${gameId}/config`, config),
+    getControls: (gameId?: string) =>
+        api.get('/admin/games/controls', { params: { gameId } }),
+    forceResult: (data: any) =>
+        api.post('/admin/games/controls/force-result', data),
+    setWinRate: (data: any) =>
+        api.post('/admin/games/controls/win-rate', data),
+    setPlayerLimit: (data: any) =>
+        api.post('/admin/games/controls/player-limit', data),
+    removeControl: (id: string) =>
+        api.delete(`/admin/games/controls/${id}`),
+};
+
+// ==================== AUDIT LOGS ====================
+export const auditAPI = {
+    list: (params?: Record<string, any>) =>
+        api.get('/admin/audit-logs', { params }),
+};
+
+// ==================== WALLET ====================
+export const walletAPI = {
+    adminCredit: (userId: string, amount: number, reason: string) =>
+        api.post('/wallet/admin/credit', { userId, amount, reason }),
+    adminDebit: (userId: string, amount: number, reason: string) =>
+        api.post('/wallet/admin/debit', { userId, amount, reason }),
+};

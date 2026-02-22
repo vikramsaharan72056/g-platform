@@ -8,7 +8,9 @@ import {
     MessageBody,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
-import { Logger } from '@nestjs/common';
+import { Logger, Inject, forwardRef } from '@nestjs/common';
+import { AviatorEngine } from './engines/aviator.engine';
+import { RedisService } from '../../redis/redis.service';
 
 @WebSocketGateway({
     cors: {
@@ -22,6 +24,12 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     private readonly logger = new Logger(GameGateway.name);
 
+    constructor(
+        @Inject(forwardRef(() => AviatorEngine))
+        private readonly aviatorEngine: AviatorEngine,
+        private readonly redis: RedisService,
+    ) { }
+
     handleConnection(client: Socket) {
         this.logger.log(`Client connected: ${client.id}`);
     }
@@ -31,22 +39,38 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
 
     @SubscribeMessage('join:game')
-    handleJoinGame(
+    async handleJoinGame(
         @ConnectedSocket() client: Socket,
         @MessageBody() data: { gameId: string },
     ) {
         client.join(`game:${data.gameId}`);
+        await this.redis.incrementPlayerCount(data.gameId);
         this.logger.log(`Client ${client.id} joined game room: ${data.gameId}`);
         client.emit('joined', { gameId: data.gameId, message: 'Joined game room' });
     }
 
     @SubscribeMessage('leave:game')
-    handleLeaveGame(
+    async handleLeaveGame(
         @ConnectedSocket() client: Socket,
         @MessageBody() data: { gameId: string },
     ) {
         client.leave(`game:${data.gameId}`);
+        await this.redis.decrementPlayerCount(data.gameId);
         this.logger.log(`Client ${client.id} left game room: ${data.gameId}`);
+    }
+
+    @SubscribeMessage('aviator:cashout')
+    async handleAviatorCashout(
+        @ConnectedSocket() client: Socket,
+        @MessageBody() data: { gameId: string; betId: string; userId: string },
+    ) {
+        this.logger.log(`Aviator cashout request: user=${data.userId}, bet=${data.betId}`);
+        const result = await this.aviatorEngine.handleCashout(data.gameId, data.betId, data.userId);
+        if (result) {
+            client.emit('aviator:cashout:success', result);
+        } else {
+            client.emit('aviator:cashout:failed', { message: 'Cashout failed — plane may have already crashed' });
+        }
     }
 
     /**
@@ -63,3 +87,4 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
         this.server.to(socketId).emit(event, data);
     }
 }
+

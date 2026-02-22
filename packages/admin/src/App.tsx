@@ -4,9 +4,15 @@ import Layout from './components/Layout';
 import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
 import UsersPage from './pages/UsersPage';
+import UserDetailPage from './pages/UserDetailPage';
 import DepositsPage from './pages/DepositsPage';
 import WithdrawalsPage from './pages/WithdrawalsPage';
 import GamesPage from './pages/GamesPage';
+import GameControlsPage from './pages/GameControlsPage';
+import AnalyticsPage from './pages/AnalyticsPage';
+import AuditLogsPage from './pages/AuditLogsPage';
+import SettingsPage from './pages/SettingsPage';
+import LiveMonitorPage from './pages/LiveMonitorPage';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
     const { user, isLoading } = useAuth();
@@ -27,9 +33,15 @@ export default function App() {
                             <Routes>
                                 <Route path="/" element={<DashboardPage />} />
                                 <Route path="/users" element={<UsersPage />} />
+                                <Route path="/users/:id" element={<UserDetailPage />} />
                                 <Route path="/deposits" element={<DepositsPage />} />
                                 <Route path="/withdrawals" element={<WithdrawalsPage />} />
                                 <Route path="/games" element={<GamesPage />} />
+                                <Route path="/game-controls" element={<GameControlsPage />} />
+                                <Route path="/analytics" element={<AnalyticsPage />} />
+                                <Route path="/audit-logs" element={<AuditLogsPage />} />
+                                <Route path="/settings" element={<SettingsPage />} />
+                                <Route path="/live-monitor" element={<LiveMonitorPage />} />
                             </Routes>
                         </Layout>
                     </PrivateRoute>

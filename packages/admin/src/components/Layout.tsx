@@ -8,6 +8,11 @@ const navItems = [
     { path: '/deposits', label: 'Deposits', icon: '💰' },
     { path: '/withdrawals', label: 'Withdrawals', icon: '🏧' },
     { path: '/games', label: 'Games', icon: '🎮' },
+    { path: '/game-controls', label: 'Game Controls', icon: '🎛️' },
+    { path: '/analytics', label: 'Analytics', icon: '📈' },
+    { path: '/audit-logs', label: 'Audit Logs', icon: '📝' },
+    { path: '/settings', label: 'Settings', icon: '⚙️' },
+    { path: '/live-monitor', label: 'Live Monitor', icon: '📡' },
 ];
 
 export default function Layout({ children }: { children: ReactNode }) {

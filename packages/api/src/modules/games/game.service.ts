@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { WalletService } from '../wallet/wallet.service';
+import { RedisService } from '../../redis/redis.service';
 import {
     TransactionType,
     RoundStatus,
@@ -20,6 +21,7 @@ export class GameService {
     constructor(
         private readonly prisma: PrismaService,
         private readonly walletService: WalletService,
+        private readonly redis: RedisService,
     ) { }
 
     // =============== GAME MANAGEMENT ===============
@@ -55,6 +57,11 @@ export class GameService {
     }
 
     async getCurrentRound(gameId: string) {
+        // Try Redis cache first
+        const cached = await this.redis.getCurrentRound(gameId);
+        if (cached) return cached;
+
+        // Fall back to DB
         const round = await this.prisma.gameRound.findFirst({
             where: {
                 gameId,
@@ -62,6 +69,11 @@ export class GameService {
             },
             orderBy: { createdAt: 'desc' },
         });
+
+        // Write-through cache
+        if (round) {
+            await this.redis.setCurrentRound(gameId, round);
+        }
 
         return round;
     }
@@ -310,9 +322,14 @@ export class GameService {
                 player_a: 1.95,
                 player_b: 1.95,
                 tie: 20,
+                any_flush_plus: 4,
                 full_house_plus: 8,
                 four_kind_plus: 30,
                 royal_flush: 500,
+            },
+            aviator: {
+                manual: 1.0,
+                auto_cashout: 1.0,
             },
         };
 
