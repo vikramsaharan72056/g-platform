@@ -24,6 +24,15 @@ interface AuthState {
     clearError: () => void;
 }
 
+const parseAuthResponse = (payload: any) => {
+    const resolved = payload?.data || payload || {};
+    return {
+        user: resolved.user,
+        accessToken: resolved.token || resolved.access_token,
+        refreshToken: resolved.refreshToken || resolved.refresh_token,
+    };
+};
+
 export const useAuthStore = create<AuthState>((set) => ({
     user: null,
     isAuthenticated: false,
@@ -34,9 +43,13 @@ export const useAuthStore = create<AuthState>((set) => ({
         set({ isLoading: true, error: null });
         try {
             const res = await authApi.login(email, password);
-            const { user, token, refreshToken } = res.data.data || res.data;
+            const { user, accessToken, refreshToken } = parseAuthResponse(res.data);
 
-            await setItem('accessToken', token);
+            if (!user || !accessToken) {
+                throw new Error('Invalid login response');
+            }
+
+            await setItem('accessToken', accessToken);
             if (refreshToken) {
                 await setItem('refreshToken', refreshToken);
             }
@@ -54,9 +67,13 @@ export const useAuthStore = create<AuthState>((set) => ({
         set({ isLoading: true, error: null });
         try {
             const res = await authApi.register(data);
-            const { user, token, refreshToken } = res.data.data || res.data;
+            const { user, accessToken, refreshToken } = parseAuthResponse(res.data);
 
-            await setItem('accessToken', token);
+            if (!user || !accessToken) {
+                throw new Error('Invalid registration response');
+            }
+
+            await setItem('accessToken', accessToken);
             if (refreshToken) {
                 await setItem('refreshToken', refreshToken);
             }

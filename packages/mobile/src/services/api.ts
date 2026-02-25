@@ -77,17 +77,17 @@ export const walletApi = {
 
 // ===================== DEPOSIT =====================
 export const depositApi = {
-    getQrCodes: () => api.get('/deposit/qr-codes'),
-    submitRequest: (data: { amount: number; paymentQrId: string; utrNumber: string }) =>
-        api.post('/deposit/request', data),
-    getHistory: (page = 1) => api.get(`/deposit/history?page=${page}`),
+    getQrCodes: () => api.get('/deposits/qr-codes'),
+    submitRequest: (data: { amount: number; paymentQrId: string; utrNumber?: string; paymentMethod?: string; screenshotUrl?: string }) =>
+        api.post('/deposits/request', data),
+    getHistory: (page = 1) => api.get(`/deposits/history?page=${page}`),
 };
 
 // ===================== WITHDRAWAL =====================
 export const withdrawalApi = {
-    submitRequest: (data: { amount: number; bankName: string; accountNumber: string; ifscCode: string; holderName: string }) =>
-        api.post('/withdrawal/request', data),
-    getHistory: (page = 1) => api.get(`/withdrawal/history?page=${page}`),
+    submitRequest: (data: { amount: number; payoutMethod: string; payoutDetails: Record<string, any> }) =>
+        api.post('/withdrawals/request', data),
+    getHistory: (page = 1) => api.get(`/withdrawals/history?page=${page}`),
 };
 
 // ===================== GAMES =====================

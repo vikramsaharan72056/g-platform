@@ -3,10 +3,13 @@ import {
     NotFoundException,
     BadRequestException,
     Logger,
+    Inject,
+    forwardRef,
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { WalletService } from '../wallet/wallet.service';
 import { RedisService } from '../../redis/redis.service';
+import { GameGateway } from './game.gateway';
 import {
     TransactionType,
     RoundStatus,
@@ -22,6 +25,8 @@ export class GameService {
         private readonly prisma: PrismaService,
         private readonly walletService: WalletService,
         private readonly redis: RedisService,
+        @Inject(forwardRef(() => GameGateway))
+        private readonly gameGateway: GameGateway,
     ) { }
 
     // =============== GAME MANAGEMENT ===============
@@ -206,6 +211,24 @@ export class GameService {
             `Bet placed: User ${userId} bet ₹${dto.amount} on ${dto.betType} for round ${round.roundNumber}`,
         );
 
+        // Emit live bet event for admin monitor and in-game listeners.
+        try {
+            this.gameGateway.broadcastToGame(round.gameId, 'bet:placed', {
+                betId: bet.id,
+                userId,
+                amount: Number(bet.amount),
+                betType: bet.betType,
+                roundId: round.id,
+                roundNumber: round.roundNumber,
+                gameName: round.game.name,
+                placedAt: bet.createdAt,
+            });
+        } catch (error) {
+            this.logger.warn(
+                `Failed to emit bet:placed for bet ${bet.id}: ${error.message}`,
+            );
+        }
+
         return {
             message: 'Bet placed successfully',
             bet: {
@@ -326,6 +349,11 @@ export class GameService {
                 full_house_plus: 8,
                 four_kind_plus: 30,
                 royal_flush: 500,
+            },
+            rummy: {
+                player_a: 1.95,
+                player_b: 1.95,
+                tie: 8,
             },
             aviator: {
                 manual: 1.0,

@@ -77,7 +77,11 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
      * Broadcast event to all players in a game room
      */
     broadcastToGame(gameId: string, event: string, data: any) {
-        this.server.to(`game:${gameId}`).emit(event, data);
+        const payload =
+            data && typeof data === 'object' && !Array.isArray(data)
+                ? { ...data, gameId }
+                : { data, gameId };
+        this.server.to(`game:${gameId}`).emit(event, payload);
     }
 
     /**

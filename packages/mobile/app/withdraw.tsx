@@ -39,10 +39,13 @@ export default function WithdrawScreen() {
         try {
             await withdrawalApi.submitRequest({
                 amount: parseFloat(amount),
-                bankName,
-                accountNumber,
-                ifscCode: ifscCode.toUpperCase(),
-                holderName,
+                payoutMethod: 'BANK',
+                payoutDetails: {
+                    bankName: bankName.trim(),
+                    accountNumber: accountNumber.trim(),
+                    ifscCode: ifscCode.toUpperCase().trim(),
+                    holderName: holderName.trim(),
+                },
             });
             Alert.alert('Success', 'Withdrawal request submitted! Admin will process.', [
                 { text: 'OK', onPress: () => router.back() },

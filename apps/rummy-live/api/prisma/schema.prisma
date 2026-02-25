@@ -1,0 +1,117 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  userId      String   @id @default(uuid())
+  name        String
+  balance     Int      @default(10000)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  transactions WalletTransaction[]
+  disputes      Dispute[]          @relation("DisputeRaisedBy")
+  resolvedDisputes Dispute[]       @relation("DisputeResolvedBy")
+  auditLogs     AuditLog[]
+}
+
+model Table {
+  id           String        @id @default(uuid())
+  name         String
+  hostUserId   String
+  maxPlayers   Int
+  pointValue   Int
+  status       TableStatus   @default(WAITING)
+  payload      Json          // Full game state for in-memory recovery
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  history      GameHistory[]
+  ledger       ResultLedger[]
+  disputes     Dispute[]
+  auditLogs    AuditLog[]
+}
+
+enum TableStatus {
+  WAITING
+  IN_PROGRESS
+  FINISHED
+}
+
+model GameHistory {
+  id        Int      @id @default(autoincrement())
+  tableId   String
+  eventType String
+  payload   Json
+  createdAt DateTime @default(now())
+
+  table     Table    @relation(fields: [tableId], references: [id])
+}
+
+model WalletTransaction {
+  id            Int      @id @default(autoincrement())
+  userId        String
+  tableId       String?
+  type          String
+  amount        Int
+  balanceBefore Int
+  balanceAfter  Int
+  payload       Json
+  createdAt     DateTime @default(now())
+
+  user          User     @relation(fields: [userId], references: [userId])
+}
+
+model ResultLedger {
+  id           Int      @id @default(autoincrement())
+  tableId      String
+  winnerUserId String
+  payload      Json
+  payloadHash  String   @unique
+  signature    String
+  previousHash String?
+  createdAt    DateTime @default(now())
+
+  table        Table    @relation(fields: [tableId], references: [id])
+}
+
+model Dispute {
+  id             Int           @id @default(autoincrement())
+  tableId        String
+  raisedBy       String
+  reason         String
+  evidence       String?
+  status         DisputeStatus @default(OPEN)
+  resolutionNote String?
+  resolvedBy     String?
+  resolvedAt     DateTime?
+  createdAt      DateTime      @default(now())
+
+  table          Table         @relation(fields: [tableId], references: [id])
+  raiser         User          @relation("DisputeRaisedBy", fields: [raisedBy], references: [userId])
+  resolver       User?         @relation("DisputeResolvedBy", fields: [resolvedBy], references: [userId])
+}
+
+enum DisputeStatus {
+  OPEN
+  REVIEWED
+  RESOLVED
+  REJECTED
+}
+
+model AuditLog {
+  id          Int      @id @default(autoincrement())
+  action      String
+  actorUserId String?
+  tableId     String?
+  payload     Json
+  createdAt   DateTime @default(now())
+
+  user        User?    @relation(fields: [actorUserId], references: [userId])
+  table       Table?   @relation(fields: [tableId], references: [id])
+}

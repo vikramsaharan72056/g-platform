@@ -2,7 +2,6 @@ import { PrismaClient } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 
 const prisma = new PrismaClient();
-// This seed script initializes the database with essential data for development and testing.
 
 async function main() {
     console.log('🌱 Seeding database...');
@@ -73,6 +72,17 @@ async function main() {
             minBet: 10,
             maxBet: 10000,
             roundDuration: 90,
+            bettingWindow: 30,
+            houseEdge: 5,
+            isActive: true,
+        },
+        {
+            name: 'Rummy',
+            slug: 'rummy',
+            type: 'CARD_GAME' as const,
+            minBet: 10,
+            maxBet: 10000,
+            roundDuration: 120,
             bettingWindow: 30,
             houseEdge: 5,
             isActive: true,

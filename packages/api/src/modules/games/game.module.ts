@@ -11,6 +11,7 @@ import { DragonTigerEngine } from './engines/dragon-tiger.engine';
 import { TeenPattiEngine } from './engines/teen-patti.engine';
 import { AviatorEngine } from './engines/aviator.engine';
 import { PokerEngine } from './engines/poker.engine';
+import { RummyEngine } from './engines/rummy.engine';
 import { GameScheduler } from './game.scheduler';
 
 @Module({
@@ -25,6 +26,7 @@ import { GameScheduler } from './game.scheduler';
         TeenPattiEngine,
         AviatorEngine,
         PokerEngine,
+        RummyEngine,
         GameScheduler,
     ],
     exports: [GameService, GameControlService],

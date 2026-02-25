@@ -1,0 +1,153 @@
+export type TableStatus = 'WAITING' | 'IN_PROGRESS' | 'FINISHED';
+export type DrawPile = 'closed' | 'open';
+export type DropType = 'FIRST' | 'MIDDLE' | 'FULL' | 'TIMEOUT' | 'INVALID_DECLARE';
+export type SeatStatus = 'ACTIVE' | 'DROPPED';
+
+export interface PlayerIdentity {
+  userId: string;
+  name: string;
+}
+
+export interface TableSeat {
+  seatNo: number;
+  userId: string;
+  name: string;
+  hand: string[];
+  score: number;
+  status: SeatStatus;
+  turnsPlayed: number;
+  dropType: DropType | null;
+  dropPenalty: number;
+  droppedAt: string | null;
+  reclaimCode: string | null;
+  connected: boolean;
+  lastSeenAt: string | null;
+}
+
+export interface TurnState {
+  userId: string;
+  hasDrawn: boolean;
+  turnNo: number;
+  startedAt: string;
+  expiresAt: string;
+  timeoutMs: number;
+}
+
+export interface SettlementEntry {
+  userId: string;
+  name: string;
+  points: number;
+  amount: number;
+  walletBefore: number;
+  walletAfter: number;
+  result: 'WIN' | 'LOSE' | 'DROP' | 'INVALID';
+}
+
+export interface SettlementSummary {
+  pointValue: number;
+  totalPoints: number;
+  totalAmount: number;
+  entries: SettlementEntry[];
+}
+
+export interface TableGameState {
+  closedPile: string[];
+  openPile: string[];
+  jokerCard: string | null;
+  jokerRank: string | null;
+  activePlayerIds: string[];
+  turn: TurnState;
+  winnerUserId: string | null;
+  winningReason: string | null;
+  finishedAt: string | null;
+  settlement: SettlementSummary | null;
+  resultLedger: null | {
+    ledgerId: number;
+    payloadHash: string;
+    signature: string;
+    signedAt: string;
+  };
+}
+
+export interface RummyTable {
+  id: string;
+  name: string;
+  hostUserId: string;
+  maxPlayers: number;
+  pointValue: number;
+  status: TableStatus;
+  createdAt: string;
+  updatedAt: string;
+  seats: TableSeat[];
+  game: TableGameState | null;
+}
+
+export interface TableSummary {
+  id: string;
+  name: string;
+  status: TableStatus;
+  maxPlayers: number;
+  currentPlayers: number;
+  pointValue: number;
+  createdAt: string;
+}
+
+export interface SeatView {
+  seatNo: number;
+  userId: string;
+  name: string;
+  score: number;
+  status: SeatStatus;
+  turnsPlayed: number;
+  dropType: DropType | null;
+  dropPenalty: number;
+  droppedAt: string | null;
+  connected: boolean;
+  lastSeenAt: string | null;
+  reclaimCode?: string | null;
+  hand?: string[];
+  handCount?: number;
+}
+
+export interface RummyTableView {
+  id: string;
+  name: string;
+  status: TableStatus;
+  hostUserId: string;
+  maxPlayers: number;
+  pointValue: number;
+  currentPlayers: number;
+  seats: SeatView[];
+  mySeat: null | {
+    userId: string;
+    seatNo: number;
+    reclaimCode: string | null;
+  };
+  game: null | {
+    jokerCard: string | null;
+    jokerRank: string | null;
+    openTop: string | null;
+    closedCount: number;
+    activePlayers: number;
+    turn: TurnState;
+    winnerUserId: string | null;
+    winningReason: string | null;
+    finishedAt: string | null;
+    settlement: SettlementSummary | null;
+    resultLedger: null | {
+      ledgerId: number;
+      payloadHash: string;
+      signature: string;
+      signedAt: string;
+    };
+  };
+}
+
+export interface HandEvaluation {
+  isValid: boolean;
+  pureSequences: number;
+  sequences: number;
+  sets: number;
+  deadwood: number;
+  score: number;
+}

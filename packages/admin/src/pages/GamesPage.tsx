@@ -51,6 +51,7 @@ export default function GamesPage() {
 
     const gameIcons: Record<string, string> = {
         'teen-patti': '🃏',
+        rummy: '🀄',
         'aviator': '✈️',
         'seven-up-down': '🎲',
         'dragon-tiger': '🐉',

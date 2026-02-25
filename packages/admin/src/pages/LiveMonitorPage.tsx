@@ -43,6 +43,15 @@ export default function LiveMonitorPage() {
     const [roundResults, setRoundResults] = useState<RoundEvent[]>([]);
     const [connected, setConnected] = useState(false);
     const socketRef = useRef<Socket | null>(null);
+    const gamesRef = useRef<LiveGameState[]>([]);
+
+    const syncGamesState = (updater: (prev: LiveGameState[]) => LiveGameState[]) => {
+        setGames((prev) => {
+            const next = updater(prev);
+            gamesRef.current = next;
+            return next;
+        });
+    };
 
     useEffect(() => {
         loadGames();
@@ -60,7 +69,7 @@ export default function LiveMonitorPage() {
         try {
             const res = await gamesAPI.list();
             const gameList: GameInfo[] = res.data.data || res.data || [];
-            setGames((prev) =>
+            syncGamesState((prev) =>
                 gameList.map((g) => {
                     const existing = prev.find((p) => p.game.id === g.id);
                     return {
@@ -86,75 +95,145 @@ export default function LiveMonitorPage() {
         socket.on('connect', () => {
             setConnected(true);
             // Join all game rooms
-            games.forEach((g) => {
+            gamesRef.current.forEach((g) => {
                 socket.emit('join:game', { gameId: g.game.id });
             });
         });
 
         socket.on('disconnect', () => setConnected(false));
 
-        // Listen for round events
-        socket.on('round:start', (data: any) => {
-            setGames((prev) =>
+        const resolveResult = (result: any) =>
+            typeof result === 'object' ? JSON.stringify(result) : String(result);
+
+        const handleRoundCreated = (data: any) => {
+            if (!data?.gameId) return;
+            syncGamesState((prev) =>
                 prev.map((g) =>
                     g.game.id === data.gameId
-                        ? { ...g, roundNumber: data.roundNumber, status: 'BETTING' }
+                        ? { ...g, roundNumber: data.roundNumber ?? g.roundNumber, status: 'BETTING' }
                         : g,
                 ),
             );
-        });
+        };
 
-        socket.on('round:locked', (data: any) => {
-            setGames((prev) =>
+        const handleRoundLocked = (data: any) => {
+            if (!data?.gameId) return;
+            syncGamesState((prev) =>
                 prev.map((g) =>
                     g.game.id === data.gameId ? { ...g, status: 'LOCKED' } : g,
                 ),
             );
-        });
+        };
 
-        socket.on('round:result', (data: any) => {
-            setGames((prev) =>
+        const handleRoundResult = (data: any) => {
+            if (!data?.gameId) return;
+
+            const existing = gamesRef.current.find((g) => g.game.id === data.gameId);
+            const resultText = resolveResult(data.result);
+            const roundNumber = data.roundNumber ?? existing?.roundNumber ?? 0;
+
+            syncGamesState((prev) =>
                 prev.map((g) =>
                     g.game.id === data.gameId
-                        ? { ...g, status: 'COMPLETED', lastResult: data.result || JSON.stringify(data) }
+                        ? { ...g, status: 'COMPLETED', lastResult: resultText }
                         : g,
                 ),
             );
+
             setRoundResults((prev) => [
                 {
                     gameId: data.gameId,
-                    gameName: data.gameName || data.gameId,
-                    roundNumber: data.roundNumber,
-                    result: typeof data.result === 'object' ? JSON.stringify(data.result) : String(data.result),
+                    gameName: existing?.game.name || data.gameName || data.gameId,
+                    roundNumber,
+                    result: resultText,
                     timestamp: new Date(),
                 },
                 ...prev.slice(0, 49),
             ]);
-        });
+        };
 
-        socket.on('bet:placed', (data: any) => {
-            setBets((prev) => [
-                {
-                    id: data.betId || Math.random().toString(36),
-                    userId: data.userId,
-                    amount: data.amount,
-                    betType: data.betType,
-                    gameName: data.gameName || 'Unknown',
-                    timestamp: new Date(),
-                },
-                ...prev.slice(0, 49),
-            ]);
-        });
+        const handleRoundSettled = (data: any) => {
+            if (!data?.gameId) return;
+            syncGamesState((prev) =>
+                prev.map((g) =>
+                    g.game.id === data.gameId ? { ...g, status: 'COMPLETED' } : g,
+                ),
+            );
+        };
 
-        // Aviator specific
-        socket.on('aviator:tick', (data: any) => {
-            setGames((prev) =>
+        const handleAviatorTakeoff = (data: any) => {
+            if (!data?.gameId) return;
+            syncGamesState((prev) =>
+                prev.map((g) =>
+                    g.game.id === data.gameId ? { ...g, status: 'PLAYING' } : g,
+                ),
+            );
+        };
+
+        const handleAviatorMultiplier = (data: any) => {
+            if (data?.gameId) {
+                syncGamesState((prev) =>
+                    prev.map((g) =>
+                        g.game.id === data.gameId
+                            ? { ...g, status: `FLYING ${data.multiplier}x` }
+                            : g,
+                    ),
+                );
+                return;
+            }
+
+            // Fallback for legacy payloads without gameId.
+            syncGamesState((prev) =>
                 prev.map((g) =>
                     g.game.slug === 'aviator'
                         ? { ...g, status: `FLYING ${data.multiplier}x` }
                         : g,
                 ),
             );
+        };
+
+        const handleAviatorCrash = (data: any) => {
+            if (!data?.gameId) return;
+            syncGamesState((prev) =>
+                prev.map((g) =>
+                    g.game.id === data.gameId
+                        ? { ...g, status: 'COMPLETED', lastResult: `Crash ${data.crashPoint}x` }
+                        : g,
+                ),
+            );
+        };
+
+        // Listen for round events.
+        socket.on('round:created', handleRoundCreated);
+        // Backward compatibility with old event name.
+        socket.on('round:start', handleRoundCreated);
+
+        socket.on('round:locked', handleRoundLocked);
+        socket.on('round:result', handleRoundResult);
+        socket.on('round:settled', handleRoundSettled);
+
+        socket.on('aviator:takeoff', handleAviatorTakeoff);
+        socket.on('aviator:multiplier', handleAviatorMultiplier);
+        // Backward compatibility with old event name.
+        socket.on('aviator:tick', handleAviatorMultiplier);
+        socket.on('aviator:crash', handleAviatorCrash);
+
+        socket.on('bet:placed', (data: any) => {
+            const mappedName =
+                data.gameName ||
+                gamesRef.current.find((g) => g.game.id === data.gameId)?.game.name ||
+                'Unknown';
+            setBets((prev) => [
+                {
+                    id: data.betId || Math.random().toString(36),
+                    userId: data.userId,
+                    amount: data.amount,
+                    betType: data.betType,
+                    gameName: mappedName,
+                    timestamp: new Date(),
+                },
+                ...prev.slice(0, 49),
+            ]);
         });
 
         socketRef.current = socket;
@@ -163,7 +242,7 @@ export default function LiveMonitorPage() {
     // Join rooms when games list updates
     useEffect(() => {
         if (socketRef.current?.connected) {
-            games.forEach((g) => {
+            gamesRef.current.forEach((g) => {
                 socketRef.current?.emit('join:game', { gameId: g.game.id });
             });
         }
@@ -185,6 +264,7 @@ export default function LiveMonitorPage() {
             'seven-up-down': '🎲',
             'dragon-tiger': '🐉',
             'teen-patti': '🃏',
+            rummy: '🀄',
             'aviator': '✈️',
             'poker': '♠️',
         };

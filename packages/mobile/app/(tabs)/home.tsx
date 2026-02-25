@@ -15,6 +15,7 @@ import { useWalletStore } from '../../src/stores/walletStore';
 
 const GAME_ICONS: Record<string, string> = {
     'seven-up-down': '🎲',
+    rummy: '🀄',
     'teen-patti': '🃏',
     'aviator': '✈️',
     'dragon-tiger': '🐉',

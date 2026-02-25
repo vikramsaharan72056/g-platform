@@ -1,0 +1,36 @@
+version: '3.8'
+
+services:
+  rummy-postgres:
+    image: postgres:16-alpine
+    container_name: rummy-postgres
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: rummy_live
+      POSTGRES_USER: gplatform_user
+      POSTGRES_PASSWORD: gplatform_local_2026
+    volumes:
+      - rummy_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gplatform_user -d rummy_live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  rummy-redis:
+    image: redis:7-alpine
+    container_name: rummy-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - rummy_redis_data:/data
+
+volumes:
+  rummy_postgres_data:
+    driver: local
+  rummy_redis_data:
+    driver: local

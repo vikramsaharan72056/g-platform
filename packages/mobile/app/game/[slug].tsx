@@ -50,6 +50,11 @@ const GAME_BET_OPTIONS: Record<string, BetOption[]> = {
         { type: 'tie', label: 'Tie', odds: '25x', color: '#FFD700', emoji: '🤝' },
         { type: 'player_b', label: 'Player B', odds: '1.95x', color: '#EF4444', emoji: '🅱️' },
     ],
+    rummy: [
+        { type: 'player_a', label: 'Player A', odds: '1.95x', color: '#3B82F6', emoji: '🅰️' },
+        { type: 'tie', label: 'Tie', odds: '8x', color: '#FFD700', emoji: '🤝' },
+        { type: 'player_b', label: 'Player B', odds: '1.95x', color: '#EF4444', emoji: '🅱️' },
+    ],
     aviator: [
         { type: 'manual', label: 'Bet & Cashout', odds: '∞x', color: '#8B5CF6', emoji: '✈️' },
     ],
@@ -64,6 +69,7 @@ const GAME_TITLES: Record<string, string> = {
     'seven-up-down': '7 Up Down 🎲',
     'dragon-tiger': 'Dragon Tiger 🐉🐯',
     'teen-patti': 'Teen Patti 🃏',
+    rummy: 'Rummy 🀄',
     aviator: 'Aviator ✈️',
     poker: 'Poker ♠️',
 };
@@ -256,6 +262,8 @@ export default function GameScreen() {
                 return renderDragonTigerResult();
             case 'teen-patti':
                 return renderTeenPattiResult();
+            case 'rummy':
+                return renderRummyResult();
             case 'aviator':
                 return renderAviatorResult();
             case 'poker':
@@ -323,6 +331,42 @@ export default function GameScreen() {
                 <Text style={[styles.resultOutcome, { color: '#10B981' }]}>
                     {r.winner === 'TIE' ? "It's a Tie!" : `${r.winner?.replace('_', ' ')} Wins!`}
                 </Text>
+            </View>
+        );
+    };
+
+    const formatRummyCards = (cards?: string[]) => {
+        if (!cards || cards.length === 0) return '?';
+        const firstLine = cards.slice(0, 7).join(' ');
+        const secondLine = cards.slice(7).join(' ');
+        return secondLine ? `${firstLine}\n${secondLine}` : firstLine;
+    };
+
+    const renderRummyResult = () => {
+        const r = round.result;
+        return (
+            <View style={styles.resultArea}>
+                <View style={styles.vsRow}>
+                    <View style={styles.cardBox}>
+                        <Text style={styles.cardLabel}>🅰️ Player A</Text>
+                        <Text style={styles.cardValue}>{formatRummyCards(r.playerA?.cards)}</Text>
+                        <Text style={styles.handRank}>
+                            Valid: {r.playerA?.isValid ? 'Yes' : 'No'} | Deadwood: {r.playerA?.deadwood ?? '-'}
+                        </Text>
+                    </View>
+                    <Text style={styles.vsText}>VS</Text>
+                    <View style={styles.cardBox}>
+                        <Text style={styles.cardLabel}>🅱️ Player B</Text>
+                        <Text style={styles.cardValue}>{formatRummyCards(r.playerB?.cards)}</Text>
+                        <Text style={styles.handRank}>
+                            Valid: {r.playerB?.isValid ? 'Yes' : 'No'} | Deadwood: {r.playerB?.deadwood ?? '-'}
+                        </Text>
+                    </View>
+                </View>
+                <Text style={[styles.resultOutcome, { color: '#10B981' }]}>
+                    {r.winner === 'TIE' ? "It's a Tie!" : `${r.winner?.replace('_', ' ')} Wins!`}
+                </Text>
+                <Text style={styles.resultValue}>{r.winningReason || ''}</Text>
             </View>
         );
     };
@@ -469,6 +513,9 @@ export default function GameScreen() {
                     )}
                     {round.status === 'PLAYING' && slug === 'teen-patti' && (
                         <Text style={styles.waitingText}>🃏 Dealing hands...</Text>
+                    )}
+                    {round.status === 'PLAYING' && slug === 'rummy' && (
+                        <Text style={styles.waitingText}>🀄 Evaluating rummy hands...</Text>
                     )}
                 </View>
 

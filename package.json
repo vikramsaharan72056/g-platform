@@ -12,11 +12,18 @@
     "api:build": "cd packages/api && npm run build",
     "admin:dev": "cd packages/admin && npm run dev",
     "admin:build": "cd packages/admin && npm run build",
+    "mobile:web:test": "cd packages/mobile && npm run web -- --port 19006 --non-interactive",
     "db:migrate": "cd packages/api && npx prisma migrate dev",
     "db:seed": "cd packages/api && npx prisma db seed",
     "db:studio": "cd packages/api && npx prisma studio",
     "docker:up": "docker-compose -f docker/docker-compose.yml up -d",
-    "docker:down": "docker-compose -f docker/docker-compose.yml down"
+    "docker:down": "docker-compose -f docker/docker-compose.yml down",
+    "e2e:functional": "playwright test -c tests/playwright/playwright.config.ts",
+    "e2e:functional:report": "node tests/playwright/report/generate-functionality-report.mjs",
+    "e2e:functional:run": "npm run e2e:functional && npm run e2e:functional:report"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.58.2"
   },
   "engines": {
     "node": ">=20.0.0"
