@@ -2,6 +2,7 @@ import { PrismaClient } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 
 const prisma = new PrismaClient();
+// This seed script initializes the database with essential data for development and testing.
 
 async function main() {
     console.log('🌱 Seeding database...');
