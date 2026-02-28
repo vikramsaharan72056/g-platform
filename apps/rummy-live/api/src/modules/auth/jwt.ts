@@ -1,9 +1,13 @@
 import jwt from 'jsonwebtoken';
 import { config } from '../../core/config.js';
 
+export type AuthRole = 'PLAYER' | 'ADMIN';
+
 export interface AuthUser {
     userId: string;
     name: string;
+    role: AuthRole;
+    email?: string;
 }
 
 const JWT_EXPIRES_IN = process.env.RUMMY_JWT_EXPIRES_IN || '7d';

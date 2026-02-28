@@ -5,10 +5,15 @@ import { useGameStore } from './src/store/useGameStore';
 import { LoginScreen } from './src/screens/LoginScreen';
 import { LobbyScreen } from './src/screens/LobbyScreen';
 import { GameScreen } from './src/screens/GameScreen';
+import { DepositScreen } from './src/screens/DepositScreen';
+import { WithdrawScreen } from './src/screens/WithdrawScreen';
+import { socketService } from './src/api/socketService';
 
 export default function App() {
   const user = useGameStore((state) => state.user);
   const currentTable = useGameStore((state) => state.currentTable);
+  const screen = useGameStore((state) => state.screen);
+  const setScreen = useGameStore((state) => state.setScreen);
   const error = useGameStore((state) => state.error);
   const setError = useGameStore((state) => state.setError);
 
@@ -19,10 +24,24 @@ export default function App() {
     }
   }, [error]);
 
+  useEffect(() => {
+    return () => {
+      socketService.disconnect();
+    };
+  }, []);
+
   const renderScreen = () => {
     if (!user) return <LoginScreen />;
-    if (!currentTable) return <LobbyScreen />;
-    return <GameScreen />;
+    if (currentTable) return <GameScreen />;
+
+    switch (screen) {
+      case 'deposit':
+        return <DepositScreen onBack={() => setScreen('lobby')} />;
+      case 'withdraw':
+        return <WithdrawScreen onBack={() => setScreen('lobby')} />;
+      default:
+        return <LobbyScreen />;
+    }
   };
 
   return (

@@ -1,0 +1,117 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  userId              String              @id @default(uuid())
+  name                String
+  role                UserRole            @default(PLAYER)
+  balance             Decimal             @default(0) @db.Decimal(12, 2)
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+  bets                AviatorBet[]
+  walletTransactions  WalletTransaction[]
+
+  @@index([createdAt])
+}
+
+enum UserRole {
+  PLAYER
+  ADMIN
+}
+
+model AviatorRound {
+  id             String       @id @default(uuid())
+  roundNumber    Int          @unique
+  status         RoundStatus  @default(BETTING)
+  hash           String
+  seed           String
+  crashPoint     Decimal      @db.Decimal(8, 2)
+  bettingStartAt DateTime
+  bettingEndAt   DateTime
+  lockedAt       DateTime?
+  takeoffAt      DateTime?
+  crashedAt      DateTime?
+  settledAt      DateTime?
+  totalBets      Int          @default(0)
+  totalBetAmount Decimal      @default(0) @db.Decimal(12, 2)
+  totalPayout    Decimal      @default(0) @db.Decimal(12, 2)
+  result         Json?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  bets           AviatorBet[]
+
+  @@index([status, createdAt])
+}
+
+enum RoundStatus {
+  WAITING
+  BETTING
+  LOCKED
+  PLAYING
+  RESULT
+  SETTLED
+  CANCELLED
+}
+
+model AviatorBet {
+  id               String       @id @default(uuid())
+  roundId          String
+  userId           String
+  amount           Decimal      @db.Decimal(12, 2)
+  betType          BetType
+  autoCashoutAt    Decimal?     @db.Decimal(8, 2)
+  status           BetStatus    @default(PLACED)
+  potentialPayout  Decimal?     @db.Decimal(12, 2)
+  cashoutMultiplier Decimal?    @db.Decimal(8, 2)
+  payout           Decimal?     @db.Decimal(12, 2)
+  placedAt         DateTime     @default(now())
+  settledAt        DateTime?
+  round            AviatorRound @relation(fields: [roundId], references: [id])
+  user             User         @relation(fields: [userId], references: [userId])
+  walletTransactions WalletTransaction[]
+
+  @@index([roundId, status])
+  @@index([userId, placedAt])
+}
+
+enum BetType {
+  manual
+  auto_cashout
+}
+
+enum BetStatus {
+  PLACED
+  WON
+  LOST
+  CANCELLED
+}
+
+model WalletTransaction {
+  id            String       @id @default(uuid())
+  userId        String
+  betId         String?
+  type          WalletTxnType
+  amount        Decimal      @db.Decimal(12, 2)
+  balanceBefore Decimal      @db.Decimal(12, 2)
+  balanceAfter  Decimal      @db.Decimal(12, 2)
+  payload       Json?
+  createdAt     DateTime     @default(now())
+  user          User         @relation(fields: [userId], references: [userId])
+  bet           AviatorBet?  @relation(fields: [betId], references: [id])
+
+  @@index([userId, createdAt])
+}
+
+enum WalletTxnType {
+  INIT_CREDIT
+  BET_DEBIT
+  BET_CASHOUT
+  BET_REFUND
+  MANUAL_ADJUST
+}

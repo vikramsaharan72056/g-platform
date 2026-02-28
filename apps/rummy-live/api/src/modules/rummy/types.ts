@@ -2,6 +2,7 @@ export type TableStatus = 'WAITING' | 'IN_PROGRESS' | 'FINISHED';
 export type DrawPile = 'closed' | 'open';
 export type DropType = 'FIRST' | 'MIDDLE' | 'FULL' | 'TIMEOUT' | 'INVALID_DECLARE';
 export type SeatStatus = 'ACTIVE' | 'DROPPED';
+export type BetChangeStatus = 'PENDING_PLAYERS' | 'PENDING_ADMIN' | 'APPROVED' | 'REJECTED';
 
 export interface PlayerIdentity {
     userId: string;
@@ -32,6 +33,40 @@ export interface TurnState {
     startedAt: string;
     expiresAt: string;
     timeoutMs: number;
+}
+
+export interface BetChangeProposal {
+    id: string;
+    requestedAmount: number;
+    currentAmount: number;
+    proposedByUserId: string;
+    proposedByName: string;
+    status: BetChangeStatus;
+    playerApprovals: string[];
+    playerRejections: string[];
+    adminDecisionBy: string | null;
+    adminDecisionReason: string | null;
+    createdAt: string;
+    updatedAt: string;
+}
+
+export interface BetControlState {
+    isBlocked: boolean;
+    blockedBy: string | null;
+    blockedReason: string | null;
+    blockedAt: string | null;
+    activeProposal: BetChangeProposal | null;
+    lastResolvedProposal: BetChangeProposal | null;
+}
+
+export interface TableChatMessage {
+    id: string;
+    tableId: string;
+    userId: string;
+    userName: string;
+    role: 'PLAYER' | 'ADMIN' | 'SYSTEM';
+    message: string;
+    createdAt: string;
 }
 
 export interface SettlementEntry {
@@ -81,6 +116,7 @@ export interface RummyTable {
     updatedAt: string;
     seats: TableSeat[];
     game: TableGameState | null;
+    betControl: BetControlState;
 }
 
 export interface TableSummary {
@@ -120,6 +156,7 @@ export interface RummyTableView {
     maxPlayers: number;
     betAmount: number;
     currentPlayers: number;
+    betControl: BetControlState;
     seats: SeatView[];
     mySeat: null | {
         userId: string;

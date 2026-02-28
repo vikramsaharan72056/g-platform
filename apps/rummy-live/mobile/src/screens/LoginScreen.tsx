@@ -19,11 +19,15 @@ export const LoginScreen = () => {
             const savedUser = localStorage.getItem('rummy_user');
             if (savedUser) {
                 try {
-                    const user = JSON.parse(savedUser);
-                    setUser(user);
-                    if (user.token) {
-                        ApiClient.setToken(user.token);
-                        socketService.init(API_URL!, user.token);
+                    const parsedUser = JSON.parse(savedUser) as User;
+                    const restoredUser: User = {
+                        ...parsedUser,
+                        invitationBonusAccepted: parsedUser.invitationBonusAccepted ?? Boolean(parsedUser.wallet),
+                    };
+                    setUser(restoredUser);
+                    if (restoredUser.token) {
+                        ApiClient.setToken(restoredUser.token);
+                        socketService.init(API_URL, restoredUser.token);
                     }
                 } catch (e) {
                     localStorage.removeItem('rummy_user');
@@ -52,7 +56,8 @@ export const LoginScreen = () => {
             const newUser: User = {
                 userId: data.user.userId,
                 name: data.user.name,
-                token: data.token
+                token: data.token,
+                invitationBonusAccepted: false,
             };
 
             if (Platform.OS === 'web') {
@@ -60,7 +65,7 @@ export const LoginScreen = () => {
             }
 
             ApiClient.setToken(data.token);
-            socketService.init(API_URL!, data.token);
+            socketService.init(API_URL, data.token);
             setUser(newUser);
         } catch (err: any) {
             console.error('Login error:', err);

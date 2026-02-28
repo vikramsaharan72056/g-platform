@@ -8,16 +8,99 @@ datasource db {
 }
 
 model User {
-  userId      String   @id @default(uuid())
+  userId          String   @id @default(uuid())
+  name            String
+  balance         Int      @default(0)      // Total Spendable Balance (Real + Bonus)
+  bonusBalance    Int      @default(10000)  // Current Bonus Balance
+  totalBonusUsed  Int      @default(0)      // Cumulative Bonus Spent
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  transactions     WalletTransaction[]
+  disputes         Dispute[]          @relation("DisputeRaisedBy")
+  resolvedDisputes Dispute[]          @relation("DisputeResolvedBy")
+  auditLogs        AuditLog[]
+  deposits         Deposit[]
+  withdrawals      Withdrawal[]
+}
+
+// ==================== PAYMENT QR CODES ====================
+model PaymentQr {
+  id          Int      @id @default(autoincrement())
   name        String
-  balance     Int      @default(10000)
+  type        String   @default("UPI") // UPI, BANK
+  qrImageUrl  String?
+  upiId       String?
+  isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  transactions WalletTransaction[]
-  disputes      Dispute[]          @relation("DisputeRaisedBy")
-  resolvedDisputes Dispute[]       @relation("DisputeResolvedBy")
-  auditLogs     AuditLog[]
+  deposits    Deposit[]
+}
+
+// ==================== DEPOSITS ====================
+model Deposit {
+  id              Int           @id @default(autoincrement())
+  userId          String
+  amount          Int
+  utrNumber       String
+  paymentMethod   String        @default("UPI")
+  screenshotUrl   String?
+  paymentQrId     Int?
+  status          DepositStatus @default(PENDING)
+  remarks         String?
+  rejectionReason String?
+  approvedBy      String?
+  approvedAt      DateTime?
+  rejectedBy      String?
+  rejectedAt      DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  user            User          @relation(fields: [userId], references: [userId])
+  paymentQr       PaymentQr?    @relation(fields: [paymentQrId], references: [id])
+
+  @@index([status])
+  @@index([userId])
+  @@index([utrNumber])
+}
+
+enum DepositStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+// ==================== WITHDRAWALS ====================
+model Withdrawal {
+  id              Int              @id @default(autoincrement())
+  userId          String
+  amount          Int
+  bankName        String?
+  accountNumber   String?
+  ifscCode        String?
+  upiId           String?
+  status          WithdrawalStatus @default(PENDING)
+  paymentRef      String?
+  remarks         String?
+  rejectionReason String?
+  approvedBy      String?
+  approvedAt      DateTime?
+  rejectedBy      String?
+  rejectedAt      DateTime?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  user            User             @relation(fields: [userId], references: [userId])
+
+  @@index([status])
+  @@index([userId])
+}
+
+enum WithdrawalStatus {
+  PENDING
+  APPROVED
+  REJECTED
 }
 
 model Table {

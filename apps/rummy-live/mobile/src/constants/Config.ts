@@ -1,7 +1,3 @@
-import { Platform } from 'react-native';
+const rawApiUrl = process.env.EXPO_PUBLIC_RUMMY_API_URL || 'http://localhost:3400';
 
-export const API_URL = Platform.select({
-    android: 'http://10.0.2.2:3400',
-    ios: 'http://localhost:3400',
-    default: 'http://localhost:3400',
-});
+export const API_URL = rawApiUrl.replace(/\/+$/, '');

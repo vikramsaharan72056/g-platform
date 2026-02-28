@@ -1,8 +1,12 @@
 import jwt from 'jsonwebtoken';
 
+export type AuthRole = 'PLAYER' | 'ADMIN';
+
 export interface AuthUser {
   userId: string;
   name: string;
+  role: AuthRole;
+  email?: string;
 }
 
 const JWT_SECRET = process.env.RUMMY_JWT_SECRET || 'rummy-live-dev-secret';

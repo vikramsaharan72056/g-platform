@@ -12,6 +12,8 @@ import {
   RummyPrismaRepository,
 } from '../../infra/database/rummy-prisma.repository.js';
 import type {
+  BetChangeProposal,
+  BetControlState,
   DrawPile,
   DropType,
   PlayerIdentity,
@@ -20,6 +22,7 @@ import type {
   SettlementEntry,
   SettlementSummary,
   TableGameState,
+  TableChatMessage,
   TableSeat,
   TableSummary,
 } from './types.js';
@@ -88,6 +91,7 @@ function stableStringify(value: unknown): string {
 
 export class RummyTableEngine {
   private readonly tables = new Map<string, RummyTable>();
+  private readonly tableChats = new Map<string, TableChatMessage[]>();
   private readonly turnTimeoutSeconds: number;
   private readonly ledgerSigningSecret: string;
   private readonly walletInitialBalance: number;
@@ -159,6 +163,34 @@ export class RummyTableEngine {
       timeoutCount: seat.timeoutCount || 0,
     }));
 
+    const normalizeProposal = (proposal: BetChangeProposal | null | undefined): BetChangeProposal | null => {
+      if (!proposal) return null;
+      return {
+        id: proposal.id || uuidv4(),
+        requestedAmount: Math.max(1, Math.floor(proposal.requestedAmount || table.betAmount)),
+        currentAmount: Math.max(1, Math.floor(proposal.currentAmount || table.betAmount)),
+        proposedByUserId: proposal.proposedByUserId || 'unknown',
+        proposedByName: proposal.proposedByName || 'Unknown',
+        status: proposal.status || 'PENDING_PLAYERS',
+        playerApprovals: Array.isArray(proposal.playerApprovals) ? proposal.playerApprovals : [],
+        playerRejections: Array.isArray(proposal.playerRejections) ? proposal.playerRejections : [],
+        adminDecisionBy: proposal.adminDecisionBy ?? null,
+        adminDecisionReason: proposal.adminDecisionReason ?? null,
+        createdAt: proposal.createdAt || nowIso(),
+        updatedAt: proposal.updatedAt || nowIso(),
+      };
+    };
+
+    const existingBetControl = table.betControl || ({} as Partial<BetControlState>);
+    table.betControl = {
+      isBlocked: existingBetControl.isBlocked ?? false,
+      blockedBy: existingBetControl.blockedBy ?? null,
+      blockedReason: existingBetControl.blockedReason ?? null,
+      blockedAt: existingBetControl.blockedAt ?? null,
+      activeProposal: normalizeProposal(existingBetControl.activeProposal),
+      lastResolvedProposal: normalizeProposal(existingBetControl.lastResolvedProposal),
+    };
+
     if (table.game) {
       const jokerRank =
         table.game.jokerRank || (table.game.jokerCard ? parseCard(table.game.jokerCard).rank : null);
@@ -174,9 +206,11 @@ export class RummyTableEngine {
     return table;
   }
 
-  listTables(): TableSummary[] {
-    return Array.from(this.tables.values())
-      .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
+  async listTables(): Promise<TableSummary[]> {
+    const saved = await this.repository.loadTables();
+    return saved
+      .filter(t => t.status !== 'FINISHED')
+      .sort((a, b) => (new Date(a.createdAt) < new Date(b.createdAt) ? 1 : -1))
       .map((t) => ({
         id: t.id,
         name: t.name,
@@ -190,12 +224,10 @@ export class RummyTableEngine {
   }
 
   async listHistory(tableId: string, limit = 100): Promise<TableHistoryRow[]> {
-    this.getTableOrThrow(tableId);
     return await this.repository.listHistory(tableId, limit);
   }
 
   async listHistorySince(tableId: string, sinceId = 0, limit = 200): Promise<TableHistoryRow[]> {
-    this.getTableOrThrow(tableId);
     return await this.repository.listHistorySince(tableId, sinceId, limit);
   }
 
@@ -220,7 +252,7 @@ export class RummyTableEngine {
 
   async getWallet(user: PlayerIdentity): Promise<WalletBalanceRow> {
     return await this.repository.ensureWallet(user.userId, user.name, {
-      initialBalance: this.walletInitialBalance,
+      initialBonus: this.walletInitialBalance,
     });
   }
 
@@ -380,6 +412,272 @@ export class RummyTableEngine {
     });
   }
 
+  listTableChat(tableId: string, viewer: PlayerIdentity, isAdmin = false, limit = 100): TableChatMessage[] {
+    const table = this.getTableOrThrow(tableId);
+    if (!isAdmin) {
+      this.getSeatOrThrow(table, viewer.userId);
+    }
+    const safeLimit = Math.max(1, Math.min(500, Math.floor(limit)));
+    const messages = this.tableChats.get(tableId) || [];
+    return messages.slice(-safeLimit);
+  }
+
+  getLatestTableChatMessage(tableId: string): TableChatMessage | null {
+    this.getTableOrThrow(tableId);
+    const messages = this.tableChats.get(tableId) || [];
+    if (messages.length === 0) return null;
+    return messages[messages.length - 1] || null;
+  }
+
+  addTableChatMessage(
+    tableId: string,
+    actor: PlayerIdentity,
+    message: string,
+    role: 'PLAYER' | 'ADMIN' = 'PLAYER',
+  ): TableChatMessage {
+    const table = this.getTableOrThrow(tableId);
+    if (role === 'PLAYER') {
+      this.getSeatOrThrow(table, actor.userId);
+    }
+
+    const normalized = message.replace(/\s+/g, ' ').trim();
+    assertCondition(normalized.length >= 1, 'Message cannot be empty');
+    assertCondition(normalized.length <= 300, 'Message is too long');
+
+    const entry: TableChatMessage = {
+      id: uuidv4(),
+      tableId: table.id,
+      userId: actor.userId,
+      userName: actor.name,
+      role,
+      message: normalized,
+      createdAt: nowIso(),
+    };
+
+    const existing = this.tableChats.get(table.id) || [];
+    existing.push(entry);
+    if (existing.length > 300) {
+      existing.splice(0, existing.length - 300);
+    }
+    this.tableChats.set(table.id, existing);
+    return entry;
+  }
+
+  async proposeBetChange(tableId: string, user: PlayerIdentity, requestedAmount: number): Promise<RummyTableView> {
+    const table = this.getTableOrThrow(tableId);
+    this.getSeatOrThrow(table, user.userId);
+    assertCondition(table.status !== 'FINISHED', 'Cannot change bet after game is finished');
+    assertCondition(!table.betControl.isBlocked, 'Bet amount is currently blocked by admin');
+
+    const nextAmount = Math.floor(requestedAmount);
+    assertCondition(nextAmount >= 1 && nextAmount <= 1000000, 'Bet amount must be between 1 and 1000000');
+    assertCondition(nextAmount !== table.betAmount, 'New bet amount must be different from current amount');
+
+    const activeProposal = table.betControl.activeProposal;
+    assertCondition(
+      !activeProposal || !['PENDING_PLAYERS', 'PENDING_ADMIN'].includes(activeProposal.status),
+      'Another bet change request is already pending',
+    );
+
+    const participantIds = this.getBetChangeParticipantIds(table);
+    assertCondition(participantIds.length >= 2, 'At least 2 active players are required for bet change');
+
+    const proposal: BetChangeProposal = {
+      id: uuidv4(),
+      requestedAmount: nextAmount,
+      currentAmount: table.betAmount,
+      proposedByUserId: user.userId,
+      proposedByName: user.name,
+      status: 'PENDING_PLAYERS',
+      playerApprovals: [user.userId],
+      playerRejections: [],
+      adminDecisionBy: null,
+      adminDecisionReason: null,
+      createdAt: nowIso(),
+      updatedAt: nowIso(),
+    };
+
+    if (participantIds.every((id) => proposal.playerApprovals.includes(id))) {
+      proposal.status = 'PENDING_ADMIN';
+    }
+
+    table.betControl.activeProposal = proposal;
+    this.touch(table);
+    await this.persist(table, 'BET_CHANGE_PROPOSED', {
+      proposalId: proposal.id,
+      proposedByUserId: user.userId,
+      currentAmount: proposal.currentAmount,
+      requestedAmount: proposal.requestedAmount,
+      status: proposal.status,
+    });
+    this.pushSystemChatMessage(
+      table.id,
+      `${user.name} requested bet change from Rs ${proposal.currentAmount.toLocaleString()} to Rs ${proposal.requestedAmount.toLocaleString()}.`,
+    );
+
+    return this.getTableView(table.id, user.userId);
+  }
+
+  async respondBetChange(tableId: string, user: PlayerIdentity, approve: boolean): Promise<RummyTableView> {
+    const table = this.getTableOrThrow(tableId);
+    this.getSeatOrThrow(table, user.userId);
+
+    const proposal = table.betControl.activeProposal;
+    assertCondition(!!proposal, 'No active bet change request');
+    assertCondition(proposal!.status === 'PENDING_PLAYERS', 'Bet change request is no longer awaiting player responses');
+
+    const participantIds = this.getBetChangeParticipantIds(table);
+    assertCondition(participantIds.includes(user.userId), 'You are not eligible to vote on this bet change');
+
+    proposal!.updatedAt = nowIso();
+    proposal!.playerApprovals = proposal!.playerApprovals.filter((id) => id !== user.userId);
+    proposal!.playerRejections = proposal!.playerRejections.filter((id) => id !== user.userId);
+
+    if (approve) {
+      proposal!.playerApprovals.push(user.userId);
+    } else {
+      proposal!.playerRejections.push(user.userId);
+    }
+
+    if (proposal!.playerRejections.length > 0) {
+      proposal!.status = 'REJECTED';
+      table.betControl.lastResolvedProposal = { ...proposal! };
+      table.betControl.activeProposal = null;
+      this.touch(table);
+      await this.persist(table, 'BET_CHANGE_REJECTED_BY_PLAYER', {
+        proposalId: proposal!.id,
+        rejectedBy: user.userId,
+      });
+      this.pushSystemChatMessage(
+        table.id,
+        `Bet change to Rs ${proposal!.requestedAmount.toLocaleString()} was rejected by a player.`,
+      );
+      return this.getTableView(table.id, user.userId);
+    }
+
+    if (participantIds.every((id) => proposal!.playerApprovals.includes(id))) {
+      proposal!.status = 'PENDING_ADMIN';
+      this.touch(table);
+      await this.persist(table, 'BET_CHANGE_PENDING_ADMIN', {
+        proposalId: proposal!.id,
+        requestedAmount: proposal!.requestedAmount,
+        approvals: proposal!.playerApprovals,
+      });
+      this.pushSystemChatMessage(
+        table.id,
+        `Bet change to Rs ${proposal!.requestedAmount.toLocaleString()} is awaiting admin approval.`,
+      );
+      return this.getTableView(table.id, user.userId);
+    }
+
+    this.touch(table);
+    await this.persist(table, 'BET_CHANGE_PLAYER_RESPONSE', {
+      proposalId: proposal!.id,
+      userId: user.userId,
+      approve,
+      approvals: proposal!.playerApprovals,
+    });
+    return this.getTableView(table.id, user.userId);
+  }
+
+  async reviewBetChangeByAdmin(
+    tableId: string,
+    admin: PlayerIdentity,
+    approve: boolean,
+    reason?: string,
+  ): Promise<RummyTableView> {
+    const table = this.getTableOrThrow(tableId);
+    const proposal = table.betControl.activeProposal;
+    assertCondition(!!proposal, 'No active bet change request');
+    assertCondition(
+      proposal!.status === 'PENDING_ADMIN' || proposal!.status === 'PENDING_PLAYERS',
+      'Bet change request is not pending review',
+    );
+
+    proposal!.updatedAt = nowIso();
+    proposal!.adminDecisionBy = admin.userId;
+    proposal!.adminDecisionReason = reason?.trim() || null;
+
+    if (!approve) {
+      proposal!.status = 'REJECTED';
+      table.betControl.lastResolvedProposal = { ...proposal! };
+      table.betControl.activeProposal = null;
+      this.touch(table);
+      await this.persist(table, 'BET_CHANGE_REJECTED_BY_ADMIN', {
+        proposalId: proposal!.id,
+        adminUserId: admin.userId,
+        reason: proposal!.adminDecisionReason,
+      });
+      this.pushSystemChatMessage(
+        table.id,
+        `Admin rejected bet change request. ${proposal!.adminDecisionReason || 'No reason provided.'}`,
+      );
+      return this.getTableView(table.id, admin.userId);
+    }
+
+    assertCondition(!table.betControl.isBlocked, 'Bet amount is currently blocked by admin');
+    table.betAmount = proposal!.requestedAmount;
+    proposal!.status = 'APPROVED';
+    table.betControl.lastResolvedProposal = { ...proposal! };
+    table.betControl.activeProposal = null;
+
+    this.touch(table);
+    await this.persist(table, 'BET_CHANGE_APPROVED_BY_ADMIN', {
+      proposalId: proposal!.id,
+      adminUserId: admin.userId,
+      newBetAmount: table.betAmount,
+    });
+    this.pushSystemChatMessage(
+      table.id,
+      `Admin approved bet change. New bet amount is Rs ${table.betAmount.toLocaleString()}.`,
+    );
+    return this.getTableView(table.id, admin.userId);
+  }
+
+  async setBetLock(tableId: string, admin: PlayerIdentity, blocked: boolean, reason?: string): Promise<RummyTableView> {
+    const table = this.getTableOrThrow(tableId);
+
+    if (blocked) {
+      table.betControl.isBlocked = true;
+      table.betControl.blockedBy = admin.userId;
+      table.betControl.blockedReason = reason?.trim() || 'Bet amount blocked by admin moderation.';
+      table.betControl.blockedAt = nowIso();
+
+      const activeProposal = table.betControl.activeProposal;
+      if (activeProposal) {
+        activeProposal.status = 'REJECTED';
+        activeProposal.updatedAt = nowIso();
+        activeProposal.adminDecisionBy = admin.userId;
+        activeProposal.adminDecisionReason = 'Auto-rejected because bet amount was blocked by admin.';
+        table.betControl.lastResolvedProposal = { ...activeProposal };
+        table.betControl.activeProposal = null;
+      }
+    } else {
+      table.betControl.isBlocked = false;
+      table.betControl.blockedBy = null;
+      table.betControl.blockedReason = null;
+      table.betControl.blockedAt = null;
+    }
+
+    this.touch(table);
+    await this.persist(table, 'BET_LOCK_UPDATED', {
+      blocked: table.betControl.isBlocked,
+      blockedBy: table.betControl.blockedBy,
+      blockedReason: table.betControl.blockedReason,
+      blockedAt: table.betControl.blockedAt,
+      adminUserId: admin.userId,
+    });
+
+    this.pushSystemChatMessage(
+      table.id,
+      blocked
+        ? `Admin notice: Bet amount is blocked for this session. ${table.betControl.blockedReason}`
+        : 'Admin notice: Bet amount block was removed for this session.',
+    );
+
+    return this.getTableView(table.id, admin.userId);
+  }
+
   async createTable(host: PlayerIdentity, input: CreateTableInput): Promise<RummyTableView> {
     const maxPlayers = Math.max(2, Math.min(6, input.maxPlayers));
     const betAmount = Math.max(1, input.betAmount);
@@ -387,7 +685,7 @@ export class RummyTableEngine {
     assertCondition(tableName.length >= 3, 'Table name must be at least 3 characters');
 
     await this.repository.ensureWallet(host.userId, host.name, {
-      initialBalance: this.walletInitialBalance,
+      initialBonus: this.walletInitialBalance,
     });
     const seat = this.createSeat(host, 1);
 
@@ -402,6 +700,14 @@ export class RummyTableEngine {
       updatedAt: nowIso(),
       seats: [seat],
       game: null,
+      betControl: {
+        isBlocked: false,
+        blockedBy: null,
+        blockedReason: null,
+        blockedAt: null,
+        activeProposal: null,
+        lastResolvedProposal: null,
+      },
     };
 
     this.tables.set(table.id, table);
@@ -420,7 +726,7 @@ export class RummyTableEngine {
 
     const alreadyJoined = table.seats.some((s) => s.userId === user.userId);
     await this.repository.ensureWallet(user.userId, user.name, {
-      initialBalance: this.walletInitialBalance,
+      initialBonus: this.walletInitialBalance,
     });
     if (!alreadyJoined) {
       assertCondition(table.seats.length < table.maxPlayers, 'Table is full');
@@ -447,6 +753,7 @@ export class RummyTableEngine {
 
     if (remaining.length === 0) {
       this.tables.delete(tableId);
+      this.tableChats.delete(tableId);
       this.repository.deleteTable(tableId);
       this.repository.appendHistory(tableId, 'TABLE_DELETED', { reason: 'last player left' });
       return;
@@ -465,6 +772,7 @@ export class RummyTableEngine {
     assertCondition(table.status === 'WAITING', 'Game already started');
     const isPlayer = table.seats.some(s => s.userId === requesterUserId);
     assertCondition(isPlayer, 'Only seated players can start');
+    assertCondition(table.hostUserId === requesterUserId, 'Only table host can start');
     assertCondition(table.seats.length >= 2, 'Need at least 2 players to start');
 
     const requiredCards = table.seats.length * 13 + 30;
@@ -670,6 +978,7 @@ export class RummyTableEngine {
       maxPlayers: table.maxPlayers,
       betAmount: table.betAmount,
       currentPlayers: table.seats.length,
+      betControl: this.cloneBetControl(table.betControl),
       seats: table.seats.map((seat) => {
         const common = {
           seatNo: seat.seatNo,
@@ -720,6 +1029,58 @@ export class RummyTableEngine {
         }
         : null,
     };
+  }
+
+  private cloneBetControl(source: BetControlState): BetControlState {
+    const copyProposal = (proposal: BetChangeProposal | null): BetChangeProposal | null => {
+      if (!proposal) return null;
+      return {
+        ...proposal,
+        playerApprovals: [...proposal.playerApprovals],
+        playerRejections: [...proposal.playerRejections],
+      };
+    };
+
+    return {
+      isBlocked: source.isBlocked,
+      blockedBy: source.blockedBy,
+      blockedReason: source.blockedReason,
+      blockedAt: source.blockedAt,
+      activeProposal: copyProposal(source.activeProposal),
+      lastResolvedProposal: copyProposal(source.lastResolvedProposal),
+    };
+  }
+
+  private getBetChangeParticipantIds(table: RummyTable): string[] {
+    if (table.status !== 'IN_PROGRESS') {
+      return table.seats.map((seat) => seat.userId);
+    }
+
+    const active = table.seats
+      .filter((seat) => seat.status === 'ACTIVE')
+      .map((seat) => seat.userId);
+
+    return active.length > 0 ? active : table.seats.map((seat) => seat.userId);
+  }
+
+  private pushSystemChatMessage(tableId: string, message: string): TableChatMessage {
+    const entry: TableChatMessage = {
+      id: uuidv4(),
+      tableId,
+      userId: 'system',
+      userName: 'System',
+      role: 'SYSTEM',
+      message,
+      createdAt: nowIso(),
+    };
+
+    const existing = this.tableChats.get(tableId) || [];
+    existing.push(entry);
+    if (existing.length > 300) {
+      existing.splice(0, existing.length - 300);
+    }
+    this.tableChats.set(tableId, existing);
+    return entry;
   }
 
   private advanceTurn(table: RummyTable): void {

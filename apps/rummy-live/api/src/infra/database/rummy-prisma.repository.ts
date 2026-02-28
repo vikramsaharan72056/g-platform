@@ -1,4 +1,4 @@
-import { PrismaClient, TableStatus, DisputeStatus } from '@prisma/client';
+import { Prisma, PrismaClient, TableStatus, DisputeStatus } from '@prisma/client';
 import type { RummyTable } from '../../modules/rummy/types.js';
 
 export interface TableHistoryRow {
@@ -13,6 +13,9 @@ export interface WalletBalanceRow {
     userId: string;
     displayName: string;
     balance: number;
+    bonusBalance: number;
+    totalBonusUsed: number;
+    realBalance: number;
     createdAt: string;
     updatedAt: string;
 }
@@ -92,7 +95,7 @@ export interface ListAuditInput {
 }
 
 export class RummyPrismaRepository {
-    private prisma: PrismaClient;
+    public prisma: PrismaClient;
 
     constructor() {
         this.prisma = new PrismaClient();
@@ -172,21 +175,26 @@ export class RummyPrismaRepository {
         }));
     }
 
-    async ensureWallet(userId: string, displayName: string, options: { initialBalance?: number } = {}): Promise<WalletBalanceRow> {
-        const initialBalance = options.initialBalance ?? 10000;
+    async ensureWallet(userId: string, displayName: string, options: { initialBonus?: number } = {}): Promise<WalletBalanceRow> {
+        const bonusAmount = options.initialBonus ?? 10000;
         const user = await this.prisma.user.upsert({
             where: { userId },
             update: { name: displayName },
             create: {
                 userId,
                 name: displayName,
-                balance: initialBalance
+                balance: bonusAmount,
+                bonusBalance: bonusAmount,
+                totalBonusUsed: 0
             }
         });
         return {
             userId: user.userId,
             displayName: user.name,
             balance: user.balance,
+            bonusBalance: user.bonusBalance,
+            totalBonusUsed: user.totalBonusUsed,
+            realBalance: user.balance - user.bonusBalance,
             createdAt: user.createdAt.toISOString(),
             updatedAt: user.updatedAt.toISOString()
         };
@@ -199,6 +207,9 @@ export class RummyPrismaRepository {
             userId: user.userId,
             displayName: user.name,
             balance: user.balance,
+            bonusBalance: user.bonusBalance,
+            totalBonusUsed: user.totalBonusUsed,
+            realBalance: user.balance - user.bonusBalance,
             createdAt: user.createdAt.toISOString(),
             updatedAt: user.updatedAt.toISOString()
         };
@@ -210,13 +221,41 @@ export class RummyPrismaRepository {
 
             for (const entry of entries) {
                 const user = await tx.user.findUnique({ where: { userId: entry.userId } });
-                const before = user?.balance ?? 10000;
-                const after = before + entry.amount;
+                const currentBalance = user?.balance ?? 0;
+                const currentBonus = user?.bonusBalance ?? 0;
+                const currentBonusUsed = user?.totalBonusUsed ?? 0;
+
+                let nextBalance = currentBalance + entry.amount;
+                let nextBonus = currentBonus;
+                let nextBonusUsed = currentBonusUsed;
+
+                // Handle Bonus Logic
+                if (entry.amount < 0) {
+                    // Spending money: Use bonus pool first
+                    const spendAmount = Math.abs(entry.amount);
+                    const bonusToDeduct = Math.min(spendAmount, currentBonus);
+                    nextBonus -= bonusToDeduct;
+                    nextBonusUsed += bonusToDeduct;
+                } else if (entry.type === 'RECHARGE') {
+                    // Adding "Free Bonus"
+                    nextBonus += entry.amount;
+                }
 
                 const updatedUser = await tx.user.upsert({
                     where: { userId: entry.userId },
-                    update: { balance: after, name: entry.displayName },
-                    create: { userId: entry.userId, name: entry.displayName, balance: after }
+                    update: {
+                        balance: nextBalance,
+                        bonusBalance: nextBonus,
+                        totalBonusUsed: nextBonusUsed,
+                        name: entry.displayName
+                    },
+                    create: {
+                        userId: entry.userId,
+                        name: entry.displayName,
+                        balance: nextBalance,
+                        bonusBalance: nextBonus,
+                        totalBonusUsed: nextBonusUsed
+                    }
                 });
 
                 await tx.walletTransaction.create({
@@ -225,13 +264,17 @@ export class RummyPrismaRepository {
                         tableId: entry.tableId,
                         type: entry.type,
                         amount: entry.amount,
-                        balanceBefore: before,
+                        balanceBefore: currentBalance,
                         balanceAfter: updatedUser.balance,
-                        payload: (entry.payload as any) || {}
+                        payload: {
+                            ...(entry.payload as any || {}),
+                            bonusUsed: (entry.amount < 0) ? Math.min(Math.abs(entry.amount), currentBonus) : 0,
+                            nextBonusBalance: nextBonus
+                        }
                     }
                 });
 
-                result.set(entry.userId, { before, after: updatedUser.balance });
+                result.set(entry.userId, { before: currentBalance, after: updatedUser.balance });
             }
 
             return result;
@@ -443,15 +486,45 @@ export class RummyPrismaRepository {
     }
 
     async appendAudit(action: string, actorUserId: string | null, tableId: string | null, payload: unknown): Promise<number> {
-        const audit = await this.prisma.auditLog.create({
-            data: {
-                action,
-                actorUserId,
-                tableId,
-                payload: payload as any
+        try {
+            const audit = await this.prisma.auditLog.create({
+                data: {
+                    action,
+                    actorUserId,
+                    tableId,
+                    payload: payload as any
+                }
+            });
+            return audit.id;
+        } catch (error) {
+            const isActorFkViolation =
+                error instanceof Prisma.PrismaClientKnownRequestError &&
+                error.code === 'P2003' &&
+                Boolean(actorUserId);
+
+            if (!isActorFkViolation) {
+                throw error;
             }
-        });
-        return audit.id;
+
+            const payloadObject =
+                payload && typeof payload === 'object' && !Array.isArray(payload)
+                    ? { ...(payload as Record<string, unknown>) }
+                    : { value: payload };
+
+            const fallback = await this.prisma.auditLog.create({
+                data: {
+                    action,
+                    actorUserId: null,
+                    tableId,
+                    payload: {
+                        ...payloadObject,
+                        actorRef: actorUserId,
+                        actorRelationFallback: true
+                    } as any
+                }
+            });
+            return fallback.id;
+        }
     }
 
     async listAuditLogs(input: ListAuditInput = {}): Promise<AuditRow[]> {
