@@ -27,8 +27,13 @@ export class GameController {
 
     @Get()
     @ApiOperation({ summary: 'Get all active games' })
-    async getGames() {
-        return this.gameService.getGames();
+    @UseGuards(JwtAuthGuard)
+    @ApiBearerAuth()
+    async getGames(
+        @CurrentUser('userId') userId: string,
+        @CurrentUser('role') role: any,
+    ) {
+        return this.gameService.getGames(userId, role);
     }
 
     @Get(':slug')

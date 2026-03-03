@@ -12,6 +12,7 @@ npm run dev
 
 ## Core Endpoints
 - `POST /auth/guest-login`
+- `POST /auth/admin-login`
 - `GET /auth/me`
 - `GET /aviator/config/public`
 - `GET /aviator/round/current`
@@ -21,6 +22,11 @@ npm run dev
 - `GET /aviator/bets/me`
 - `GET /wallet/me`
 - `GET /wallet/me/transactions`
+
+## Admin Endpoints
+- `GET /aviator/admin/live-monitor`
+- `GET /aviator/admin/config`
+- `PATCH /aviator/admin/config`
 
 ## Socket Events
 Client -> Server:

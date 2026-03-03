@@ -60,6 +60,7 @@ enum GameType {
   DICE_GAME
   SLOT_GAME
   ROULETTE_GAME
+  BOARD_GAME
 }
 
 enum RoundStatus {
@@ -78,6 +79,19 @@ enum BetStatus {
   LOST
   REFUNDED
   CANCELLED
+}
+
+enum AllocationStatus {
+  PENDING
+  APPROVED
+  REVOKED
+}
+
+enum ServiceHealth {
+  HEALTHY
+  DEGRADED
+  DOWN
+  UNKNOWN
 }
 
 enum DepositStatus {
@@ -126,9 +140,12 @@ model User {
   status           UserStatus @default(ACTIVE)
   role             UserRole   @default(PLAYER)
 
-  // Referral
+  // Referral & Management
   referralCode     String?    @unique
   referredBy       String?
+  parentAdminId    String?
+  parentAdmin      User?      @relation("AdminToSubordinate", fields: [parentAdminId], references: [id])
+  subordinates     User[]     @relation("AdminToSubordinate")
 
   // Relations
   wallet           Wallet?
@@ -138,6 +155,9 @@ model User {
   notifications    Notification[]
   depositRequests  DepositRequest[]
   withdrawalRequests WithdrawalRequest[]
+  serviceAllocations ServiceAllocation[]
+  managedTransactions Transaction[]      @relation("AdminTransactions")
+  managedBets         Bet[]               @relation("AdminBets")
 
   // Timestamps
   lastLoginAt      DateTime?
@@ -203,6 +223,10 @@ model Transaction {
   betId          String?
   gameRoundId    String?
 
+  // Tenant/Management
+  parentAdminId  String?
+  parentAdmin    User?             @relation("AdminTransactions", fields: [parentAdminId], references: [id])
+
   description    String?
 
   createdAt      DateTime          @default(now())
@@ -246,6 +270,7 @@ model Game {
   // Relations
   rounds            GameRound[]
   adminControls     GameAdminControl[]
+  gameService       GameService?
 
   createdAt         DateTime     @default(now())
   updatedAt         DateTime     @updatedAt
@@ -321,6 +346,10 @@ model Bet {
 
   placeTxnId      String?
   payoutTxnId     String?
+
+  // Tenant/Management
+  parentAdminId   String?
+  parentAdmin     User?       @relation("AdminBets", fields: [parentAdminId], references: [id])
 
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
@@ -513,4 +542,55 @@ model AuditLog {
   @@index([action])
   @@index([createdAt])
   @@map("audit_logs")
+}
+
+// ==================== SERVICE REGISTRY ====================
+
+model GameService {
+  id            String        @id @default(uuid())
+
+  gameId        String        @unique
+  game          Game          @relation(fields: [gameId], references: [id])
+
+  // Microservice endpoints
+  serviceUrl    String        // http://localhost:3402
+  wsUrl         String?       // ws://localhost:3402
+  internalKey   String?       // Shared secret for inter-service calls
+
+  // Health
+  healthStatus  ServiceHealth @default(UNKNOWN)
+  lastHealthAt  DateTime?
+
+  // Access control
+  isGlobal      Boolean       @default(false) // If true, available to all players
+
+  allocations   ServiceAllocation[]
+
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@map("game_services")
+}
+
+model ServiceAllocation {
+  id              String           @id @default(uuid())
+
+  gameServiceId   String
+  gameService     GameService      @relation(fields: [gameServiceId], references: [id], onDelete: Cascade)
+
+  userId          String
+  user            User             @relation(fields: [userId], references: [id])
+  allocatedRole   UserRole         // ADMIN or PLAYER — what capacity they have
+
+  status          AllocationStatus @default(PENDING)
+  requestedAt     DateTime         @default(now())
+  approvedBy      String?
+  approvedAt      DateTime?
+  revokedAt       DateTime?
+  revokeReason    String?
+
+  @@unique([gameServiceId, userId])
+  @@index([userId])
+  @@index([status])
+  @@map("service_allocations")
 }

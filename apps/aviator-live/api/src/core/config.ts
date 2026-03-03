@@ -2,6 +2,9 @@ export const config = {
   port: Number(process.env.AVIATOR_API_PORT || 3501),
   jwtSecret: process.env.AVIATOR_JWT_SECRET || 'aviator-live-jwt-dev-secret',
   jwtExpiresIn: process.env.AVIATOR_JWT_EXPIRES_IN || '7d',
+  adminEmail: (process.env.AVIATOR_ADMIN_EMAIL || 'admin@aviator.live').trim().toLowerCase(),
+  adminPassword: process.env.AVIATOR_ADMIN_PASSWORD || 'change-me-now',
+  adminName: (process.env.AVIATOR_ADMIN_NAME || 'Aviator Admin').trim(),
   socketRoom: process.env.AVIATOR_SOCKET_ROOM || 'game:aviator-main',
   databaseUrl:
     process.env.DATABASE_URL ||
@@ -14,4 +17,6 @@ export const config = {
   waitingSeconds: Number(process.env.AVIATOR_WAITING_SECONDS || 5),
   multiplierTickMs: Number(process.env.AVIATOR_MULTIPLIER_TICK_MS || 150),
   multiplierGrowthMs: Number(process.env.AVIATOR_MULTIPLIER_GROWTH_MS || 5500),
+  maxCrashPoint: Number(process.env.AVIATOR_MAX_CRASH_POINT || 100),
+  maintenanceMode: String(process.env.AVIATOR_MAINTENANCE_MODE || 'false').toLowerCase() === 'true',
 };

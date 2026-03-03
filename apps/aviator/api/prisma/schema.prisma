@@ -1,0 +1,54 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+enum RoundStatus {
+  PENDING
+  BETTING
+  FLYING
+  CRASHED
+}
+
+enum BetStatus {
+  PLACED
+  WON
+  LOST
+  CANCELLED
+}
+
+model GameRound {
+  id             String      @id @default(uuid())
+  roundNumber    Int         @unique
+  crashPoint     Float
+  serverSeed     String
+  clientSeed     String?
+  combinedHash   String
+  status         RoundStatus @default(PENDING)
+  bettingStartAt DateTime?
+  bettingEndAt   DateTime?
+  flightStartAt  DateTime?
+  crashedAt      DateTime?
+  durationMs     Int?
+  createdAt      DateTime    @default(now())
+  bets           Bet[]
+}
+
+model Bet {
+  id             String    @id @default(uuid())
+  userId         String    // Reference to global User in Hub
+  roundId        String
+  round          GameRound @relation(fields: [roundId], references: [id])
+  amount         Float
+  autoCashout    Float?
+  cashoutPoint   Float?
+  payout         Float?
+  status         BetStatus @default(PLACED)
+  isAutoCashout  Boolean   @default(false)
+  placedAt       DateTime  @default(now())
+  cashedOutAt    DateTime?
+}

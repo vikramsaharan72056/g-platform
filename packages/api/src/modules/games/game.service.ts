@@ -15,7 +15,9 @@ import {
     RoundStatus,
     BetStatus,
 } from '@prisma/client';
+import { ServiceRegistryService } from '../service-registry/service-registry.service';
 import { PlaceBetDto } from './dto/place-bet.dto';
+import { UserRole } from '@prisma/client';
 
 @Injectable()
 export class GameService {
@@ -25,31 +27,17 @@ export class GameService {
         private readonly prisma: PrismaService,
         private readonly walletService: WalletService,
         private readonly redis: RedisService,
+        private readonly serviceRegistry: ServiceRegistryService,
         @Inject(forwardRef(() => GameGateway))
         private readonly gameGateway: GameGateway,
     ) { }
 
-    // =============== GAME MANAGEMENT ===============
-
-    async getGames() {
-        return this.prisma.game.findMany({
-            where: { isActive: true },
-            select: {
-                id: true,
-                name: true,
-                slug: true,
-                type: true,
-                minBet: true,
-                maxBet: true,
-                roundDuration: true,
-                bettingWindow: true,
-                houseEdge: true,
-                isActive: true,
-                isMaintenanceMode: true,
-                thumbnail: true,
-                banner: true,
-            },
-        });
+    async getGames(userId?: string, role?: UserRole) {
+        if (userId && role) {
+            return this.serviceRegistry.getAvailableServices(userId, role);
+        }
+        const svcs = await this.serviceRegistry.listAllServices();
+        return svcs.filter(s => s.isGlobal);
     }
 
     async getGameBySlug(slug: string) {
@@ -195,6 +183,7 @@ export class GameService {
                 odds,
                 potentialPayout,
                 placeTxnId: transaction.id,
+                parentAdminId: (transaction as any).parentAdminId,
             },
         });
 
@@ -358,6 +347,12 @@ export class GameService {
             aviator: {
                 manual: 1.0,
                 auto_cashout: 1.0,
+            },
+            ludo: {
+                red: 3.8,
+                blue: 3.8,
+                green: 3.8,
+                yellow: 3.8,
             },
         };
 

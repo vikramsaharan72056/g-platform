@@ -400,4 +400,73 @@ export class GameControlService {
 
         return { roundStats, betStats, topPlayers };
     }
+
+    // ======================== MERCHANT REPORTS ========================
+
+    async getMerchantReports(days = 7, parentAdminId?: string) {
+        const startDate = new Date();
+        startDate.setDate(startDate.getDate() - days);
+
+        const where: any = {
+            createdAt: { gte: startDate },
+        };
+        if (parentAdminId) {
+            where.parentAdminId = parentAdminId;
+        }
+
+        const [betGroups, userCounts] = await Promise.all([
+            // Group bets by admin
+            this.prisma.bet.groupBy({
+                by: ['parentAdminId'],
+                where: {
+                    ...where,
+                    status: { in: ['WON', 'LOST'] },
+                },
+                _sum: {
+                    amount: true,
+                    actualPayout: true,
+                },
+                _count: {
+                    id: true,
+                },
+            }),
+            // Count unique players per admin
+            this.prisma.user.groupBy({
+                by: ['parentAdminId'],
+                where: {
+                    role: 'PLAYER',
+                    ...(parentAdminId ? { parentAdminId } : {}),
+                },
+                _count: {
+                    id: true,
+                },
+            }),
+        ]);
+
+        // Fetch admin details
+        const adminIds = betGroups.map(g => g.parentAdminId).filter(Boolean) as string[];
+        const admins = await this.prisma.user.findMany({
+            where: { id: { in: adminIds } },
+            select: { id: true, email: true, displayName: true },
+        });
+
+        const reports = betGroups.map(group => {
+            const admin = admins.find(a => a.id === group.parentAdminId);
+            const playerStats = userCounts.find(u => u.parentAdminId === group.parentAdminId);
+            const totalBet = Number(group._sum.amount || 0);
+            const totalPayout = Number(group._sum.actualPayout || 0);
+
+            return {
+                adminId: group.parentAdminId || 'System/Direct',
+                adminName: admin?.displayName || admin?.email || 'System',
+                totalBets: group._count.id,
+                betVolume: totalBet,
+                revenue: totalBet - totalPayout,
+                payout: totalPayout,
+                activePlayers: playerStats?._count.id || 0,
+            };
+        });
+
+        return reports;
+    }
 }

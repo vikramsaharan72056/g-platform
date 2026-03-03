@@ -56,6 +56,7 @@ export default function GamesPage() {
         'seven-up-down': '🎲',
         'dragon-tiger': '🐉',
         'poker': '♠️',
+        'ludo': '🎲',
     };
 
     if (loading) return <div className="page-loading">Loading games...</div>;

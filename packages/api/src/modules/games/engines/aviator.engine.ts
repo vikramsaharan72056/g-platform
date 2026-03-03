@@ -27,6 +27,7 @@ export class AviatorEngine {
 
     constructor(
         private readonly prisma: PrismaService,
+        @Inject(forwardRef(() => GameService))
         private readonly gameService: GameService,
         @Inject(forwardRef(() => GameGateway))
         private readonly gateway: GameGateway,

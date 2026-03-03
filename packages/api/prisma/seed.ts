@@ -129,7 +129,18 @@ async function main() {
             roundDuration: 120,
             bettingWindow: 30,
             houseEdge: 5,
-            isActive: false, // Not implemented yet
+            isActive: false,
+        },
+        {
+            name: 'Ludo',
+            slug: 'ludo',
+            type: 'BOARD_GAME' as const,
+            minBet: 10,
+            maxBet: 5000,
+            roundDuration: 45,
+            bettingWindow: 20,
+            houseEdge: 5,
+            isActive: true,
         },
     ];
 

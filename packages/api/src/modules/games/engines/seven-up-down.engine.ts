@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Inject, forwardRef } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { GameService } from '../game.service';
 import { GameGateway } from '../game.gateway';
@@ -16,7 +16,9 @@ export class SevenUpDownEngine {
 
     constructor(
         private readonly prisma: PrismaService,
+        @Inject(forwardRef(() => GameService))
         private readonly gameService: GameService,
+        @Inject(forwardRef(() => GameGateway))
         private readonly gateway: GameGateway,
     ) { }
 

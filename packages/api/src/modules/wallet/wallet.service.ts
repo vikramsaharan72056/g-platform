@@ -96,11 +96,14 @@ export class WalletService {
             // Get wallet with lock
             const wallet = await tx.wallet.findUnique({
                 where: { userId },
+                include: { user: { select: { parentAdminId: true } } }
             });
 
             if (!wallet) {
                 throw new NotFoundException('Wallet not found');
             }
+
+            const parentAdminId = wallet.user?.parentAdminId;
 
             const balanceBefore = Number(wallet.balance);
             const balanceAfter = balanceBefore + amount;
@@ -144,6 +147,7 @@ export class WalletService {
                     gameRoundId: metadata?.gameRoundId,
                     processedBy: metadata?.processedBy,
                     processedAt: new Date(),
+                    parentAdminId,
                 },
             });
 
@@ -173,11 +177,14 @@ export class WalletService {
             // Get wallet with lock
             const wallet = await tx.wallet.findUnique({
                 where: { userId },
+                include: { user: { select: { parentAdminId: true } } }
             });
 
             if (!wallet) {
                 throw new NotFoundException('Wallet not found');
             }
+
+            const parentAdminId = wallet.user?.parentAdminId;
 
             const balanceBefore = Number(wallet.balance);
 
@@ -247,6 +254,7 @@ export class WalletService {
                     gameRoundId: metadata?.gameRoundId,
                     processedBy: metadata?.processedBy,
                     processedAt: new Date(),
+                    parentAdminId,
                 },
             });
 
@@ -267,8 +275,13 @@ export class WalletService {
         processedBy?: string,
     ) {
         return this.prisma.$transaction(async (tx) => {
-            const wallet = await tx.wallet.findUnique({ where: { userId } });
+            const wallet = await tx.wallet.findUnique({
+                where: { userId },
+                include: { user: { select: { parentAdminId: true } } }
+            });
             if (!wallet) throw new NotFoundException('Wallet not found');
+
+            const parentAdminId = wallet.user?.parentAdminId;
 
             const balanceBefore = Number(wallet.bonusBalance);
             const balanceAfter = balanceBefore + amount;
@@ -293,6 +306,7 @@ export class WalletService {
                     description,
                     processedBy,
                     processedAt: new Date(),
+                    parentAdminId,
                 },
             });
 

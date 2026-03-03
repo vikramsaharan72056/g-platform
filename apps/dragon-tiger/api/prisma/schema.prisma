@@ -1,0 +1,34 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model GameRound {
+  id             String    @id @default(uuid())
+  roundNumber    Int       @unique
+  status         String    @default("BETTING") // BETTING, LOCKED, REVELATION, RESULT
+  dragonCard     String?   
+  tigerCard      String?
+  winner         String?   // DRAGON, TIGER, TIE
+  resultData     String?   
+  bettingEndAt   DateTime?
+  createdAt      DateTime  @default(now())
+  bets           Bet[]
+}
+
+model Bet {
+  id           String    @id @default(uuid())
+  userId       String    // Global User ID
+  roundId      String
+  round        GameRound @relation(fields: [roundId], references: [id])
+  betType      String    
+  amount       Float
+  payout       Float?
+  status       String    @default("PLACED") 
+  placedAt     DateTime  @default(now())
+  settledAt    DateTime?
+}

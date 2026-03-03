@@ -10,6 +10,18 @@ import {
 import type { Server } from 'socket.io';
 import { config } from '../../core/config.js';
 
+export interface AviatorRuntimeConfig {
+  minBet: number;
+  maxBet: number;
+  bettingWindowSeconds: number;
+  lockSeconds: number;
+  waitingSeconds: number;
+  multiplierTickMs: number;
+  multiplierGrowthMs: number;
+  maxCrashPoint: number;
+  maintenanceMode: boolean;
+}
+
 interface ActiveAutoBet {
   betId: string;
   userId: string;
@@ -68,11 +80,25 @@ export class AviatorEngine {
   private nextRoundTimer: NodeJS.Timeout | null = null;
   private lockTimer: NodeJS.Timeout | null = null;
   private flightTimer: NodeJS.Timeout | null = null;
+  private runtimeConfig: AviatorRuntimeConfig;
 
   constructor(
     private readonly prisma: PrismaClient,
     private readonly io: Server,
-  ) {}
+    runtimeConfig?: Partial<AviatorRuntimeConfig>,
+  ) {
+    this.runtimeConfig = {
+      minBet: runtimeConfig?.minBet ?? config.minBet,
+      maxBet: runtimeConfig?.maxBet ?? config.maxBet,
+      bettingWindowSeconds: runtimeConfig?.bettingWindowSeconds ?? config.bettingWindowSeconds,
+      lockSeconds: runtimeConfig?.lockSeconds ?? config.lockSeconds,
+      waitingSeconds: runtimeConfig?.waitingSeconds ?? config.waitingSeconds,
+      multiplierTickMs: runtimeConfig?.multiplierTickMs ?? config.multiplierTickMs,
+      multiplierGrowthMs: runtimeConfig?.multiplierGrowthMs ?? config.multiplierGrowthMs,
+      maxCrashPoint: runtimeConfig?.maxCrashPoint ?? config.maxCrashPoint,
+      maintenanceMode: runtimeConfig?.maintenanceMode ?? config.maintenanceMode,
+    };
+  }
 
   async start(): Promise<void> {
     await this.recoverStaleRounds();
@@ -83,6 +109,31 @@ export class AviatorEngine {
     if (this.nextRoundTimer) clearTimeout(this.nextRoundTimer);
     if (this.lockTimer) clearTimeout(this.lockTimer);
     if (this.flightTimer) clearInterval(this.flightTimer);
+  }
+
+  getRuntimeConfig(): AviatorRuntimeConfig {
+    return { ...this.runtimeConfig };
+  }
+
+  updateRuntimeConfig(partial: Partial<AviatorRuntimeConfig>): AviatorRuntimeConfig {
+    const next: AviatorRuntimeConfig = {
+      ...this.runtimeConfig,
+      ...partial,
+    };
+
+    if (next.minBet <= 0) throw new Error('minBet must be greater than zero');
+    if (next.maxBet < next.minBet) throw new Error('maxBet must be greater than or equal to minBet');
+    if (next.bettingWindowSeconds < 3) throw new Error('bettingWindowSeconds must be at least 3');
+    if (next.lockSeconds < 1) throw new Error('lockSeconds must be at least 1');
+    if (next.waitingSeconds < 1) throw new Error('waitingSeconds must be at least 1');
+    if (next.multiplierTickMs < 50) throw new Error('multiplierTickMs must be at least 50');
+    if (next.multiplierGrowthMs < 1000) throw new Error('multiplierGrowthMs must be at least 1000');
+    if (next.maxCrashPoint < 10 || next.maxCrashPoint > 1000) {
+      throw new Error('maxCrashPoint must be between 10 and 1000');
+    }
+
+    this.runtimeConfig = next;
+    return this.getRuntimeConfig();
   }
 
   async getCurrentRoundView(userId?: string) {
@@ -163,6 +214,10 @@ export class AviatorEngine {
   }
 
   async placeBet(userId: string, input: PlaceBetInput) {
+    if (this.runtimeConfig.maintenanceMode) {
+      throw new Error('Game is in maintenance mode');
+    }
+
     const round = await this.prisma.aviatorRound.findFirst({
       where: { status: RoundStatus.BETTING },
       orderBy: { roundNumber: 'desc' },
@@ -174,18 +229,18 @@ export class AviatorEngine {
     if (new Date() > round.bettingEndAt) {
       throw new Error('Betting window already closed');
     }
-    if (input.amount < config.minBet) {
-      throw new Error(`Minimum bet is ${config.minBet}`);
+    if (input.amount < this.runtimeConfig.minBet) {
+      throw new Error(`Minimum bet is ${this.runtimeConfig.minBet}`);
     }
-    if (input.amount > config.maxBet) {
-      throw new Error(`Maximum bet is ${config.maxBet}`);
+    if (input.amount > this.runtimeConfig.maxBet) {
+      throw new Error(`Maximum bet is ${this.runtimeConfig.maxBet}`);
     }
     if (input.betType === 'auto_cashout') {
       if (input.autoCashoutAt === null || input.autoCashoutAt === undefined) {
         throw new Error('autoCashoutAt is required for auto cashout bet');
       }
-      if (input.autoCashoutAt < 1.01 || input.autoCashoutAt > 100) {
-        throw new Error('autoCashoutAt must be between 1.01 and 100');
+      if (input.autoCashoutAt < 1.01 || input.autoCashoutAt > this.runtimeConfig.maxCrashPoint) {
+        throw new Error(`autoCashoutAt must be between 1.01 and ${this.runtimeConfig.maxCrashPoint}`);
       }
     }
 
@@ -517,7 +572,7 @@ export class AviatorEngine {
     if (rand >= 3) {
       crashPoint = Math.max(1.0, Math.floor((10000 / (100 - rand))) / 100);
     }
-    crashPoint = Math.min(crashPoint, 100);
+    crashPoint = Math.min(crashPoint, this.runtimeConfig.maxCrashPoint);
     return { seed, hash, crashPoint: round2(crashPoint) };
   }
 
@@ -540,6 +595,11 @@ export class AviatorEngine {
   }
 
   private async startRound(): Promise<void> {
+    if (this.runtimeConfig.maintenanceMode) {
+      await this.scheduleNextRound(2000);
+      return;
+    }
+
     const lastRound = await this.prisma.aviatorRound.findFirst({
       orderBy: { roundNumber: 'desc' },
       select: { roundNumber: true },
@@ -547,7 +607,7 @@ export class AviatorEngine {
     const roundNumber = (lastRound?.roundNumber || 0) + 1;
     const generated = this.generateRoundSeed();
     const now = new Date();
-    const bettingEnd = new Date(now.getTime() + config.bettingWindowSeconds * 1000);
+    const bettingEnd = new Date(now.getTime() + this.runtimeConfig.bettingWindowSeconds * 1000);
 
     const round = await this.prisma.aviatorRound.create({
       data: {
@@ -584,7 +644,7 @@ export class AviatorEngine {
     if (this.lockTimer) clearTimeout(this.lockTimer);
     this.lockTimer = setTimeout(() => {
       void this.lockRound(round.id);
-    }, config.bettingWindowSeconds * 1000);
+    }, this.runtimeConfig.bettingWindowSeconds * 1000);
   }
 
   private async lockRound(roundId: string): Promise<void> {
@@ -605,7 +665,7 @@ export class AviatorEngine {
 
     setTimeout(() => {
       void this.startFlight(roundId);
-    }, config.lockSeconds * 1000);
+    }, this.runtimeConfig.lockSeconds * 1000);
   }
 
   private async startFlight(roundId: string): Promise<void> {
@@ -651,7 +711,7 @@ export class AviatorEngine {
     if (this.flightTimer) clearInterval(this.flightTimer);
     this.flightTimer = setInterval(() => {
       void this.processFlightTick();
-    }, config.multiplierTickMs);
+    }, this.runtimeConfig.multiplierTickMs);
   }
 
   private async processFlightTick(): Promise<void> {
@@ -761,11 +821,11 @@ export class AviatorEngine {
     });
 
     this.activeRound = null;
-    await this.scheduleNextRound(config.waitingSeconds * 1000);
+    await this.scheduleNextRound(this.runtimeConfig.waitingSeconds * 1000);
   }
 
   private multiplierAt(elapsedMs: number): number {
-    return Math.exp(elapsedMs / config.multiplierGrowthMs);
+    return Math.exp(elapsedMs / this.runtimeConfig.multiplierGrowthMs);
   }
 
   private emitToRoom(event: string, payload: Record<string, unknown>): void {
@@ -779,4 +839,3 @@ export class AviatorEngine {
     });
   }
 }
-

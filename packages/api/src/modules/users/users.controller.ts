@@ -60,8 +60,28 @@ export class UsersController {
         @Query('search') search?: string,
         @Query('status') status?: string,
         @Query('role') role?: string,
+        @CurrentUser() user?: { userId: string; role: string },
     ) {
-        return this.usersService.listUsers(page, limit, search, status, role);
+        return this.usersService.listUsers(
+            page,
+            limit,
+            search,
+            status,
+            role,
+            user ? { id: user.userId, role: user.role } : undefined,
+        );
+    }
+
+    @Patch('admin/:id/assign-parent')
+    @UseGuards(RolesGuard)
+    @Roles('SUPER_ADMIN')
+    @ApiOperation({ summary: '[Super Admin] Assign a parent admin to a user' })
+    async assignParentAdmin(
+        @Param('id') id: string,
+        @Body('parentAdminId') parentAdminId: string,
+        @CurrentUser('userId') curatorId: string,
+    ) {
+        return this.usersService.assignParentAdmin(id, parentAdminId, curatorId);
     }
 
     @Get('admin/:id')

@@ -3,6 +3,7 @@ import { gamesApi } from '../services/api';
 
 interface Game {
     id: string;
+    gameId?: string; // Links to global game config
     name: string;
     slug: string;
     description: string;
@@ -10,7 +11,8 @@ interface Game {
     isActive: boolean;
     minBet: number;
     maxBet: number;
-    bettingWindow: number;
+    serviceUrl?: string; // The URL of the spoke microservice
+    wsUrl?: string;      // The WebSocket URL of the spoke
 }
 
 interface RoundState {
@@ -50,8 +52,30 @@ export const useGameStore = create<GameState>((set) => ({
         set({ isLoading: true });
         try {
             const res = await gamesApi.getAll();
-            const data = res.data.data || res.data;
-            set({ games: Array.isArray(data) ? data : [], isLoading: false });
+            const rawData = res.data.data || res.data;
+
+            // Map Registry response (GameService objects) to Game interface
+            const games = Array.isArray(rawData) ? rawData.map((item: any) => {
+                if (item.game && item.serviceUrl) {
+                    // This is a Registry result
+                    return {
+                        id: item.id,
+                        gameId: item.gameId,
+                        name: item.game.name,
+                        slug: item.game.slug,
+                        description: item.game.description,
+                        thumbnail: item.game.thumbnail,
+                        isActive: item.game.isActive && item.healthStatus === 'HEALTHY',
+                        minBet: item.game.minBet,
+                        maxBet: item.game.maxBet,
+                        serviceUrl: item.serviceUrl,
+                        wsUrl: item.wsUrl
+                    };
+                }
+                return item; // Legacy flat game object
+            }) : [];
+
+            set({ games, isLoading: false });
         } catch {
             set({ isLoading: false });
         }

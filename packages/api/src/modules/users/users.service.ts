@@ -55,9 +55,21 @@ export class UsersService {
         search?: string,
         status?: string,
         role?: string,
+        requestingUser?: { id: string; role: string },
     ) {
         const where: Prisma.UserWhereInput = {};
 
+        // 1. Role-based filtering
+        if (requestingUser?.role === 'ADMIN') {
+            // Admin can only see users managed by them
+            where.parentAdminId = requestingUser.id;
+            where.role = 'PLAYER'; // Usually Admins only manage Players
+        } else if (requestingUser?.role === 'SUPER_ADMIN') {
+            // Super-Admin can see everyone, but if they filter by role/status, apply it
+            if (role) where.role = role as any;
+        }
+
+        // 2. Search & other filters
         if (search) {
             where.OR = [
                 { email: { contains: search, mode: 'insensitive' } },
@@ -70,7 +82,8 @@ export class UsersService {
             where.status = status as any;
         }
 
-        if (role) {
+        // If Super-Admin didn't specify a role, or we are not in Admin mode, apply provided role
+        if (role && requestingUser?.role !== 'ADMIN') {
             where.role = role as any;
         }
 
@@ -87,6 +100,7 @@ export class UsersService {
                     kycStatus: true,
                     lastLoginAt: true,
                     createdAt: true,
+                    parentAdminId: true,
                     wallet: {
                         select: {
                             balance: true,
@@ -95,6 +109,9 @@ export class UsersService {
                             totalWithdrawn: true,
                         },
                     },
+                    _count: {
+                        select: { serviceAllocations: true }
+                    }
                 },
                 orderBy: { createdAt: 'desc' },
                 skip: (page - 1) * limit,
@@ -112,6 +129,31 @@ export class UsersService {
                 totalPages: Math.ceil(total / limit),
             },
         };
+    }
+
+    async assignParentAdmin(userId: string, parentAdminId: string, curatorId: string) {
+        // Verify parent exists and is an ADMIN/SUPER_ADMIN
+        const parent = await this.prisma.user.findUnique({ where: { id: parentAdminId } });
+        if (!parent) throw new NotFoundException('Parent admin not found');
+        if (parent.role === 'PLAYER') throw new Error('Cannot assign a Player as a parent admin');
+
+        const user = await this.prisma.user.update({
+            where: { id: userId },
+            data: { parentAdminId },
+        });
+
+        // Audit log
+        await this.prisma.auditLog.create({
+            data: {
+                userId: curatorId,
+                action: 'admin.user.assign_parent',
+                resource: 'user',
+                resourceId: userId,
+                details: { parentAdminId },
+            },
+        });
+
+        return user;
     }
 
     async getUserDetail(userId: string) {

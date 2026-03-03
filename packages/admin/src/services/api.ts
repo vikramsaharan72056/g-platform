@@ -45,6 +45,8 @@ export const usersAPI = {
     detail: (id: string) => api.get(`/users/admin/${id}`),
     updateStatus: (id: string, status: string) =>
         api.patch(`/users/admin/${id}/status`, { status }),
+    assignParent: (id: string, parentAdminId: string) =>
+        api.patch(`/users/admin/${id}/assign-parent`, { parentAdminId }),
 };
 
 // ==================== DEPOSITS ====================
@@ -82,6 +84,8 @@ export const gameControlsAPI = {
     dashboard: () => api.get('/admin/games/dashboard'),
     revenueChart: (days?: number) =>
         api.get('/admin/games/revenue-chart', { params: { days } }),
+    merchantReports: (days?: number) =>
+        api.get('/admin/games/merchant-reports', { params: { days } }),
     gameAnalytics: (gameId: string, days?: number) =>
         api.get(`/admin/games/${gameId}/analytics`, { params: { days } }),
     updateConfig: (gameId: string, config: any) =>
@@ -110,4 +114,22 @@ export const walletAPI = {
         api.post('/wallet/admin/credit', { userId, amount, reason }),
     adminDebit: (userId: string, amount: number, reason: string) =>
         api.post('/wallet/admin/debit', { userId, amount, reason }),
+};
+// ==================== SERVICE REGISTRY ====================
+export const registryAPI = {
+    // Service Management (SUPER_ADMIN)
+    listServices: () => api.get('/service-registry/services'),
+    registerService: (data: any) => api.post('/service-registry/services', data),
+    updateService: (id: string, data: any) => api.patch(`/service-registry/services/${id}`, data),
+    removeService: (id: string) => api.delete(`/service-registry/services/${id}`),
+
+    // Allocation Management (SUPER_ADMIN)
+    listAllAllocations: (params?: Record<string, any>) => api.get('/service-registry/allocations', { params }),
+    createAllocation: (data: any) => api.post('/service-registry/allocations', data),
+    approveAllocation: (id: string) => api.patch(`/service-registry/allocations/${id}/approve`),
+    revokeAllocation: (id: string, reason?: string) => api.patch(`/service-registry/allocations/${id}/revoke`, { reason }),
+
+    // My Services (ADMIN / SUPER_ADMIN)
+    myServices: () => api.get('/service-registry/my-services'),
+    requestService: (gameServiceId: string) => api.post('/service-registry/my-services/request', { gameServiceId }),
 };

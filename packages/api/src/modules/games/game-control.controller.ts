@@ -52,11 +52,24 @@ export class GameControlController {
         return this.gameControlService.getGameAnalytics(gameId, days || 7);
     }
 
+    @Get('merchant-reports')
+    @Roles('ADMIN', 'SUPER_ADMIN')
+    @ApiOperation({ summary: '[Admin] Get revenue/volume reports by merchant' })
+    @ApiQuery({ name: 'days', required: false })
+    async getMerchantReports(
+        @CurrentUser() user: any,
+        @Query('days') days?: number,
+    ) {
+        // If regular ADMIN, only show their own reports
+        const parentAdminId = user.role === 'ADMIN' ? user.userId : undefined;
+        return this.gameControlService.getMerchantReports(days || 7, parentAdminId);
+    }
+
     // ======================== GAME CONFIG ========================
 
     @Patch(':gameId/config')
-    @Roles('SUPER_ADMIN')
-    @ApiOperation({ summary: '[Super Admin] Update game configuration' })
+    @Roles('ADMIN', 'SUPER_ADMIN')
+    @ApiOperation({ summary: '[Admin] Update game configuration' })
     async updateConfig(
         @Param('gameId') gameId: string,
         @Body() config: any,
@@ -69,16 +82,16 @@ export class GameControlController {
     // ======================== GAME CONTROLS ========================
 
     @Get('controls')
-    @Roles('SUPER_ADMIN')
-    @ApiOperation({ summary: '[Super Admin] List active game controls' })
+    @Roles('ADMIN', 'SUPER_ADMIN')
+    @ApiOperation({ summary: '[Admin] List active game controls' })
     @ApiQuery({ name: 'gameId', required: false })
     async getControls(@Query('gameId') gameId?: string) {
         return this.gameControlService.getActiveControls(gameId);
     }
 
     @Post('controls/force-result')
-    @Roles('SUPER_ADMIN')
-    @ApiOperation({ summary: '[Super Admin] Force next round result' })
+    @Roles('ADMIN', 'SUPER_ADMIN')
+    @ApiOperation({ summary: '[Admin] Force next round result' })
     async forceResult(
         @Body() body: { gameId: string; winner?: string; forceCards?: any; reason: string },
         @CurrentUser('userId') adminId: string,
@@ -88,8 +101,8 @@ export class GameControlController {
     }
 
     @Post('controls/win-rate')
-    @Roles('SUPER_ADMIN')
-    @ApiOperation({ summary: '[Super Admin] Set win rate control' })
+    @Roles('ADMIN', 'SUPER_ADMIN')
+    @ApiOperation({ summary: '[Admin] Set win rate control' })
     async setWinRate(
         @Body()
         body: {
@@ -116,8 +129,8 @@ export class GameControlController {
     }
 
     @Post('controls/player-limit')
-    @Roles('SUPER_ADMIN')
-    @ApiOperation({ summary: '[Super Admin] Set player-specific limits' })
+    @Roles('ADMIN', 'SUPER_ADMIN')
+    @ApiOperation({ summary: '[Admin] Set player-specific limits' })
     async setPlayerLimit(
         @Body()
         body: {
@@ -137,8 +150,8 @@ export class GameControlController {
     }
 
     @Delete('controls/:id')
-    @Roles('SUPER_ADMIN')
-    @ApiOperation({ summary: '[Super Admin] Remove a game control' })
+    @Roles('ADMIN', 'SUPER_ADMIN')
+    @ApiOperation({ summary: '[Admin] Remove a game control' })
     async removeControl(
         @Param('id') id: string,
         @CurrentUser('userId') adminId: string,

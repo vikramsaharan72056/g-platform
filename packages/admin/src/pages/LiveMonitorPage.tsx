@@ -267,6 +267,7 @@ export default function LiveMonitorPage() {
             rummy: '🀄',
             'aviator': '✈️',
             'poker': '♠️',
+            'ludo': '🎲',
         };
         return icons[slug] || '🎮';
     };

@@ -43,6 +43,11 @@ const guestLoginSchema = z.object({
   userId: z.string().uuid().optional(),
 });
 
+const adminLoginSchema = z.object({
+  email: z.string().trim().email(),
+  password: z.string().min(1).max(200),
+});
+
 const placeBetSchema = z.object({
   amount: z.number().positive().max(10000000),
   betType: z.enum(['manual', 'auto_cashout']),
@@ -62,6 +67,26 @@ const cashoutBodySchema = z.object({
   betId: z.string().uuid(),
 });
 
+const adminConfigPatchSchema = z
+  .object({
+    minBet: z.coerce.number().positive().optional(),
+    maxBet: z.coerce.number().positive().optional(),
+    bettingWindowSeconds: z.coerce.number().int().min(3).optional(),
+    lockSeconds: z.coerce.number().int().min(1).optional(),
+    waitingSeconds: z.coerce.number().int().min(1).optional(),
+    multiplierTickMs: z.coerce.number().int().min(50).optional(),
+    multiplierGrowthMs: z.coerce.number().int().min(1000).optional(),
+    maxCrashPoint: z.coerce.number().min(10).max(1000).optional(),
+    maintenanceMode: z.boolean().optional(),
+  })
+  .refine((obj) => Object.keys(obj).length > 0, { message: 'No config fields provided' });
+
+const adminAuthConfig = {
+  email: config.adminEmail,
+  password: config.adminPassword,
+  name: config.adminName,
+};
+
 function extractBearerToken(req: Request): string | null {
   const header = req.headers.authorization;
   if (!header || !header.toLowerCase().startsWith('bearer ')) return null;
@@ -80,6 +105,19 @@ function requireAuth(req: AuthedRequest, res: Response, next: NextFunction): voi
   } catch (error: any) {
     res.status(401).json({ message: error.message || 'Invalid token' });
   }
+}
+
+function requireAdmin(req: AuthedRequest, res: Response, next: NextFunction): void {
+  const user = req.authUser;
+  if (!user) {
+    res.status(401).json({ message: 'Unauthorized' });
+    return;
+  }
+  if (user.role !== 'ADMIN') {
+    res.status(403).json({ message: 'Admin role required' });
+    return;
+  }
+  next();
 }
 
 function userFromReq(req: AuthedRequest): AuthUser {
@@ -163,9 +201,46 @@ app.post('/auth/guest-login', async (req, res) => {
   }
 });
 
+app.post('/auth/admin-login', (req, res) => {
+  try {
+    const parsed = adminLoginSchema.parse(req.body);
+    const email = parsed.email.toLowerCase();
+    if (email !== adminAuthConfig.email || parsed.password !== adminAuthConfig.password) {
+      res.status(401).json({ message: 'Invalid admin credentials' });
+      return;
+    }
+
+    const token = signAuthToken({
+      userId: `admin:${adminAuthConfig.email}`,
+      name: adminAuthConfig.name,
+      role: 'ADMIN',
+    });
+
+    ok(res, {
+      token,
+      user: {
+        userId: `admin:${adminAuthConfig.email}`,
+        name: adminAuthConfig.name,
+        role: 'ADMIN',
+      },
+    });
+  } catch (error) {
+    fail(res, error);
+  }
+});
+
 app.get('/auth/me', requireAuth, async (req: AuthedRequest, res) => {
   try {
     const authUser = userFromReq(req);
+    if (authUser.role === 'ADMIN') {
+      ok(res, {
+        userId: authUser.userId,
+        name: authUser.name,
+        role: authUser.role,
+      });
+      return;
+    }
+
     const user = await prisma.user.findUnique({ where: { userId: authUser.userId } });
     if (!user) {
       res.status(404).json({ message: 'User not found' });
@@ -184,13 +259,16 @@ app.get('/auth/me', requireAuth, async (req: AuthedRequest, res) => {
 });
 
 app.get('/aviator/config/public', (_req, res) => {
+  const runtime = engine.getRuntimeConfig();
   ok(res, {
-    minBet: config.minBet,
-    maxBet: config.maxBet,
-    bettingWindowSeconds: config.bettingWindowSeconds,
-    lockSeconds: config.lockSeconds,
-    waitingSeconds: config.waitingSeconds,
-    multiplierTickMs: config.multiplierTickMs,
+    minBet: runtime.minBet,
+    maxBet: runtime.maxBet,
+    bettingWindowSeconds: runtime.bettingWindowSeconds,
+    lockSeconds: runtime.lockSeconds,
+    waitingSeconds: runtime.waitingSeconds,
+    multiplierTickMs: runtime.multiplierTickMs,
+    maxCrashPoint: runtime.maxCrashPoint,
+    maintenanceMode: runtime.maintenanceMode,
   });
 });
 
@@ -268,6 +346,100 @@ app.get('/wallet/me/transactions', requireAuth, async (req: AuthedRequest, res) 
   }
 });
 
+app.get('/aviator/admin/config', requireAuth, requireAdmin, (_req: AuthedRequest, res) => {
+  try {
+    ok(res, engine.getRuntimeConfig());
+  } catch (error) {
+    fail(res, error);
+  }
+});
+
+app.patch('/aviator/admin/config', requireAuth, requireAdmin, (req: AuthedRequest, res) => {
+  try {
+    const parsed = adminConfigPatchSchema.parse(req.body);
+    const next = engine.updateRuntimeConfig(parsed);
+    io.to(config.socketRoom).emit('aviator:config:updated', {
+      config: next,
+      updatedAt: new Date().toISOString(),
+    });
+    ok(res, next);
+  } catch (error) {
+    fail(res, error);
+  }
+});
+
+app.get('/aviator/admin/live-monitor', requireAuth, requireAdmin, async (_req: AuthedRequest, res) => {
+  try {
+    const snapshot = await engine.getCurrentRoundView();
+    const roundId = snapshot.round?.id;
+    if (!roundId) {
+      ok(res, {
+        round: null,
+        metrics: {
+          totalBets: 0,
+          activePlayers: 0,
+          totalStaked: 0,
+          totalPayout: 0,
+          placed: 0,
+          won: 0,
+          lost: 0,
+          cancelled: 0,
+        },
+        config: engine.getRuntimeConfig(),
+      });
+      return;
+    }
+
+    const [statusCounts, sums, playerAgg] = await Promise.all([
+      prisma.aviatorBet.groupBy({
+        by: ['status'],
+        where: { roundId },
+        _count: { _all: true },
+      }),
+      prisma.aviatorBet.aggregate({
+        where: { roundId },
+        _sum: {
+          amount: true,
+          payout: true,
+        },
+      }),
+      prisma.aviatorBet.groupBy({
+        by: ['userId'],
+        where: { roundId },
+        _count: { _all: true },
+      }),
+    ]);
+
+    const counts = {
+      placed: 0,
+      won: 0,
+      lost: 0,
+      cancelled: 0,
+    };
+    for (const row of statusCounts) {
+      const value = row._count._all;
+      if (row.status === 'PLACED') counts.placed = value;
+      if (row.status === 'WON') counts.won = value;
+      if (row.status === 'LOST') counts.lost = value;
+      if (row.status === 'CANCELLED') counts.cancelled = value;
+    }
+
+    ok(res, {
+      round: snapshot.round,
+      metrics: {
+        totalBets: counts.placed + counts.won + counts.lost + counts.cancelled,
+        activePlayers: playerAgg.length,
+        totalStaked: toNumber(sums._sum.amount),
+        totalPayout: toNumber(sums._sum.payout),
+        ...counts,
+      },
+      config: engine.getRuntimeConfig(),
+    });
+  } catch (error) {
+    fail(res, error);
+  }
+});
+
 function socketAuth(socket: Socket): AuthUser {
   return socket.data.user as AuthUser;
 }
@@ -299,7 +471,9 @@ io.on('connection', async (socket) => {
 
   try {
     socket.emit('round:state', await engine.getCurrentRoundView(user.userId));
-    socket.emit('wallet:updated', await engine.getWallet(user.userId));
+    if (user.role !== 'ADMIN') {
+      socket.emit('wallet:updated', await engine.getWallet(user.userId));
+    }
   } catch (error: any) {
     socket.emit('aviator:error', { message: error?.message || 'Unable to load state' });
   }
@@ -314,6 +488,9 @@ io.on('connection', async (socket) => {
 
   socket.on('aviator:cashout', async (payload: unknown) => {
     try {
+      if (user.role === 'ADMIN') {
+        throw new Error('Admins cannot cashout');
+      }
       const parsed = cashoutBodySchema.parse(payload);
       const result = await engine.cashout(user.userId, parsed.betId, 'manual');
       socket.emit('aviator:cashout:success', result);

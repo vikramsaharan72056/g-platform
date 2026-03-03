@@ -12,10 +12,16 @@ import { TeenPattiEngine } from './engines/teen-patti.engine';
 import { AviatorEngine } from './engines/aviator.engine';
 import { PokerEngine } from './engines/poker.engine';
 import { RummyEngine } from './engines/rummy.engine';
+import { LudoEngine } from './engines/ludo.engine';
 import { GameScheduler } from './game.scheduler';
+import { ServiceRegistryModule } from '../service-registry/service-registry.module';
 
 @Module({
-    imports: [WalletModule, AuditModule],
+    imports: [
+        WalletModule,
+        AuditModule,
+        forwardRef(() => ServiceRegistryModule),
+    ],
     controllers: [GameController, GameControlController],
     providers: [
         GameService,
@@ -27,6 +33,7 @@ import { GameScheduler } from './game.scheduler';
         AviatorEngine,
         PokerEngine,
         RummyEngine,
+        LudoEngine,
         GameScheduler,
     ],
     exports: [GameService, GameControlService],

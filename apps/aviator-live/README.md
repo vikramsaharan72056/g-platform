@@ -5,7 +5,8 @@ This is the next game app stack after `apps/rummy-live`.
 Folders:
 - `api`: real-time Aviator backend (REST + Socket) - implemented first slice
 - `mobile`: playable Aviator client (Expo) - implemented first slice
-- `admin`: upcoming admin dashboard for Aviator operations
+- `admin`: live monitor + runtime controls dashboard - implemented first slice
+- `e2e`: Playwright flow tests for login/bet/cashout/settlement
 - `docs`: implementation notes and rollout checklist
 
 Rule:

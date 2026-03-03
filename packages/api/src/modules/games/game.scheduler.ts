@@ -6,6 +6,7 @@ import { TeenPattiEngine } from './engines/teen-patti.engine';
 import { AviatorEngine } from './engines/aviator.engine';
 import { PokerEngine } from './engines/poker.engine';
 import { RummyEngine } from './engines/rummy.engine';
+import { LudoEngine } from './engines/ludo.engine';
 
 @Injectable()
 export class GameScheduler implements OnModuleInit {
@@ -19,6 +20,7 @@ export class GameScheduler implements OnModuleInit {
         private readonly aviator: AviatorEngine,
         private readonly poker: PokerEngine,
         private readonly rummy: RummyEngine,
+        private readonly ludo: LudoEngine,
     ) { }
 
     async onModuleInit() {
@@ -65,6 +67,10 @@ export class GameScheduler implements OnModuleInit {
                     case 'rummy':
                         this.logger.log(`Starting Rummy game loop for ${game.name}`);
                         await this.rummy.executeRound(game.id);
+                        break;
+                    case 'ludo':
+                        this.logger.log(`Starting Ludo game loop for ${game.name}`);
+                        await this.ludo.executeRound(game.id);
                         break;
 
                     default:

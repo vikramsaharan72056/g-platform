@@ -15,23 +15,27 @@ import { useLocalSearchParams, router } from 'expo-router';
 import { gamesApi, walletApi } from '../../src/services/api';
 import { connectSocket, disconnectSocket } from '../../src/services/socket';
 
-// ======================== TYPES ========================
-interface RoundState {
-    roundId: string | null;
-    roundNumber: number;
-    status: 'WAITING' | 'BETTING' | 'LOCKED' | 'PLAYING' | 'RESULT' | 'SETTLED';
-    bettingEndsAt: string | null;
-    result: any;
-    settlement: any;
-}
+// Modular Game Components
+import { RoundState, BetOption } from '../../src/components/games/types';
+import { AviatorDisplay } from '../../src/components/games/AviatorDisplay';
+import { SevenUpDownDisplay } from '../../src/components/games/SevenUpDownDisplay';
+import { DragonTigerDisplay } from '../../src/components/games/DragonTigerDisplay';
+import { TeenPattiDisplay } from '../../src/components/games/TeenPattiDisplay';
+import { RummyDisplay } from '../../src/components/games/RummyDisplay';
+import { PokerDisplay } from '../../src/components/games/PokerDisplay';
+import { LudoDisplay } from '../../src/components/games/LudoDisplay';
+import { BetPanel } from '../../src/components/games/BetPanel';
 
-interface BetOption {
-    type: string;
-    label: string;
-    odds: string;
-    color: string;
-    emoji: string;
-}
+// ======================== RENDERERS = [STAGE & PERFORMER] ========================
+const GAME_RENDERERS: Record<string, React.FC<any>> = {
+    'seven-up-down': SevenUpDownDisplay,
+    'dragon-tiger': DragonTigerDisplay,
+    'teen-patti': TeenPattiDisplay,
+    rummy: RummyDisplay,
+    aviator: AviatorDisplay,
+    poker: PokerDisplay,
+    ludo: LudoDisplay,
+};
 
 // ======================== BET OPTIONS ========================
 const GAME_BET_OPTIONS: Record<string, BetOption[]> = {
@@ -63,6 +67,12 @@ const GAME_BET_OPTIONS: Record<string, BetOption[]> = {
         { type: 'tie', label: 'Tie', odds: '20x', color: '#FFD700', emoji: '🤝' },
         { type: 'player_b', label: 'Player B', odds: '1.95x', color: '#EF4444', emoji: '🅱️' },
     ],
+    ludo: [
+        { type: 'red', label: 'Red Wins', odds: '3.8x', color: '#EF4444', emoji: '🔴' },
+        { type: 'blue', label: 'Blue Wins', odds: '3.8x', color: '#3B82F6', emoji: '🔵' },
+        { type: 'green', label: 'Green Wins', odds: '3.8x', color: '#10B981', emoji: '🟢' },
+        { type: 'yellow', label: 'Yellow Wins', odds: '3.8x', color: '#F59E0B', emoji: '🟡' },
+    ],
 };
 
 const GAME_TITLES: Record<string, string> = {
@@ -72,6 +82,7 @@ const GAME_TITLES: Record<string, string> = {
     rummy: 'Rummy 🀄',
     aviator: 'Aviator ✈️',
     poker: 'Poker ♠️',
+    ludo: 'Ludo 🎲',
 };
 
 // ======================== MAIN COMPONENT ========================
@@ -251,209 +262,25 @@ export default function GameScreen() {
         ).start();
     };
 
-    // ======================== RESULT RENDERERS ========================
-    const renderResult = () => {
-        if (!round.result) return null;
-
-        switch (slug) {
-            case 'seven-up-down':
-                return renderDiceResult();
-            case 'dragon-tiger':
-                return renderDragonTigerResult();
-            case 'teen-patti':
-                return renderTeenPattiResult();
-            case 'rummy':
-                return renderRummyResult();
-            case 'aviator':
-                return renderAviatorResult();
-            case 'poker':
-                return renderPokerResult();
-            default:
-                return <Text style={styles.resultText}>Result: {JSON.stringify(round.result)}</Text>;
+    // ======================== THE DYNAMIC RENDERER ========================
+    const renderGameContent = () => {
+        const Renderer = GAME_RENDERERS[slug || ''];
+        if (!Renderer) {
+            return <Text style={styles.waitingText}>Game Interface Not Found</Text>;
         }
-    };
 
-    const diceEmoji = (val: number) => ['', '⚀', '⚁', '⚂', '⚃', '⚄', '⚅'][val] || '🎲';
-
-    const renderDiceResult = () => {
-        const r = round.result;
         return (
-            <View style={styles.resultArea}>
-                <Text style={styles.resultEmoji}>{diceEmoji(r.dice1)} {diceEmoji(r.dice2)}</Text>
-                <Text style={styles.resultValue}>Total: {r.total}</Text>
-                <Text style={[styles.resultOutcome, { color: r.outcome === 'seven' ? '#FFD700' : r.outcome === 'up' ? '#10B981' : '#EF4444' }]}>
-                    {r.outcome?.toUpperCase()}
-                </Text>
-            </View>
-        );
-    };
-
-    const renderDragonTigerResult = () => {
-        const r = round.result;
-        const cardDisplay = (card: any) => `${card?.value || '?'}${(card?.suit || '?')[0]}`;
-        return (
-            <View style={styles.resultArea}>
-                <View style={styles.vsRow}>
-                    <View style={styles.cardBox}>
-                        <Text style={styles.cardLabel}>🐉 Dragon</Text>
-                        <Text style={styles.cardValue}>{cardDisplay(r.dragonCard)}</Text>
-                    </View>
-                    <Text style={styles.vsText}>VS</Text>
-                    <View style={styles.cardBox}>
-                        <Text style={styles.cardLabel}>🐯 Tiger</Text>
-                        <Text style={styles.cardValue}>{cardDisplay(r.tigerCard)}</Text>
-                    </View>
-                </View>
-                <Text style={[styles.resultOutcome, { color: r.winner === 'TIE' ? '#FFD700' : '#10B981' }]}>
-                    {r.winner === 'TIE' ? "It's a Tie!" : `${r.winner} Wins!`}
-                </Text>
-            </View>
-        );
-    };
-
-    const renderTeenPattiResult = () => {
-        const r = round.result;
-        return (
-            <View style={styles.resultArea}>
-                <View style={styles.vsRow}>
-                    <View style={styles.cardBox}>
-                        <Text style={styles.cardLabel}>🅰️ Player A</Text>
-                        <Text style={styles.cardValue}>{r.playerA?.cards?.join(' ') || '?'}</Text>
-                        <Text style={styles.handRank}>{r.playerA?.handName || ''}</Text>
-                    </View>
-                    <Text style={styles.vsText}>VS</Text>
-                    <View style={styles.cardBox}>
-                        <Text style={styles.cardLabel}>🅱️ Player B</Text>
-                        <Text style={styles.cardValue}>{r.playerB?.cards?.join(' ') || '?'}</Text>
-                        <Text style={styles.handRank}>{r.playerB?.handName || ''}</Text>
-                    </View>
-                </View>
-                <Text style={[styles.resultOutcome, { color: '#10B981' }]}>
-                    {r.winner === 'TIE' ? "It's a Tie!" : `${r.winner?.replace('_', ' ')} Wins!`}
-                </Text>
-            </View>
-        );
-    };
-
-    const formatRummyCards = (cards?: string[]) => {
-        if (!cards || cards.length === 0) return '?';
-        const firstLine = cards.slice(0, 7).join(' ');
-        const secondLine = cards.slice(7).join(' ');
-        return secondLine ? `${firstLine}\n${secondLine}` : firstLine;
-    };
-
-    const renderRummyResult = () => {
-        const r = round.result;
-        return (
-            <View style={styles.resultArea}>
-                <View style={styles.vsRow}>
-                    <View style={styles.cardBox}>
-                        <Text style={styles.cardLabel}>🅰️ Player A</Text>
-                        <Text style={styles.cardValue}>{formatRummyCards(r.playerA?.cards)}</Text>
-                        <Text style={styles.handRank}>
-                            Valid: {r.playerA?.isValid ? 'Yes' : 'No'} | Deadwood: {r.playerA?.deadwood ?? '-'}
-                        </Text>
-                    </View>
-                    <Text style={styles.vsText}>VS</Text>
-                    <View style={styles.cardBox}>
-                        <Text style={styles.cardLabel}>🅱️ Player B</Text>
-                        <Text style={styles.cardValue}>{formatRummyCards(r.playerB?.cards)}</Text>
-                        <Text style={styles.handRank}>
-                            Valid: {r.playerB?.isValid ? 'Yes' : 'No'} | Deadwood: {r.playerB?.deadwood ?? '-'}
-                        </Text>
-                    </View>
-                </View>
-                <Text style={[styles.resultOutcome, { color: '#10B981' }]}>
-                    {r.winner === 'TIE' ? "It's a Tie!" : `${r.winner?.replace('_', ' ')} Wins!`}
-                </Text>
-                <Text style={styles.resultValue}>{r.winningReason || ''}</Text>
-            </View>
-        );
-    };
-
-    const renderAviatorResult = () => {
-        const r = round.result;
-        return (
-            <View style={styles.resultArea}>
-                <Text style={styles.resultEmoji}>💥</Text>
-                <Text style={styles.resultValue}>Crashed at</Text>
-                <Text style={[styles.multiplierText, { color: '#EF4444' }]}>{r.crashPoint}x</Text>
-            </View>
-        );
-    };
-
-    const renderPokerResult = () => {
-        const r = round.result;
-        return (
-            <View style={styles.resultArea}>
-                <View style={styles.vsRow}>
-                    <View style={styles.cardBox}>
-                        <Text style={styles.cardLabel}>🅰️ Player A</Text>
-                        <Text style={styles.cardValue}>{r.playerA?.holeCards?.join(' ') || '?'}</Text>
-                        <Text style={styles.handRank}>{r.playerA?.handName || ''}</Text>
-                    </View>
-                    <Text style={styles.vsText}>VS</Text>
-                    <View style={styles.cardBox}>
-                        <Text style={styles.cardLabel}>🅱️ Player B</Text>
-                        <Text style={styles.cardValue}>{r.playerB?.holeCards?.join(' ') || '?'}</Text>
-                        <Text style={styles.handRank}>{r.playerB?.handName || ''}</Text>
-                    </View>
-                </View>
-                {r.communityCards && (
-                    <Text style={styles.communityCards}>Board: {r.communityCards.join(' ')}</Text>
-                )}
-                <Text style={[styles.resultOutcome, { color: '#10B981' }]}>
-                    {r.winner === 'TIE' ? "It's a Tie!" : `${r.winner?.replace('_', ' ')} Wins!`}
-                </Text>
-            </View>
-        );
-    };
-
-    // ======================== AVIATOR LIVE DISPLAY ========================
-    const renderAviatorLive = () => {
-        if (slug !== 'aviator' || round.status !== 'PLAYING') return null;
-        return (
-            <View style={styles.aviatorLive}>
-                <Text style={styles.planeEmoji}>✈️</Text>
-                <Text style={[styles.multiplierText, { color: aviatorMultiplier > 2 ? '#10B981' : '#fff' }]}>
-                    {aviatorMultiplier.toFixed(2)}x
-                </Text>
-                {activeBetId && !hasCashedOut && (
-                    <TouchableOpacity style={styles.cashoutBtn} onPress={handleAviatorCashout}>
-                        <Text style={styles.cashoutText}>💰 CASH OUT</Text>
-                    </TouchableOpacity>
-                )}
-                {hasCashedOut && (
-                    <Text style={styles.cashedOutText}>✅ Cashed Out!</Text>
-                )}
-            </View>
-        );
-    };
-
-    // ======================== POKER LIVE DISPLAY ========================
-    const renderPokerLive = () => {
-        if (slug !== 'poker' || round.status !== 'PLAYING') return null;
-        const r = round.result || {};
-        return (
-            <View style={styles.pokerLive}>
-                {r.holeCards && (
-                    <View style={styles.vsRow}>
-                        <View style={styles.cardBox}>
-                            <Text style={styles.cardLabel}>🅰️ Player A</Text>
-                            <Text style={styles.cardValue}>{r.holeCards.playerA?.join(' ') || '...'}</Text>
-                        </View>
-                        <View style={styles.cardBox}>
-                            <Text style={styles.cardLabel}>🅱️ Player B</Text>
-                            <Text style={styles.cardValue}>{r.holeCards.playerB?.join(' ') || '...'}</Text>
-                        </View>
-                    </View>
-                )}
-                <View style={styles.communityRow}>
-                    {r.flop && <Text style={styles.communityCards}>Flop: {r.flop.join(' ')}</Text>}
-                    {r.turn && <Text style={styles.communityCards}>Turn: {r.turn}</Text>}
-                    {r.river && <Text style={styles.communityCards}>River: {r.river}</Text>}
-                </View>
-            </View>
+            <Renderer
+                round={round}
+                slug={slug as string}
+                extraData={{
+                    multiplier: aviatorMultiplier,
+                    hasCashedOut,
+                    onCashout: handleAviatorCashout,
+                    activeBetId,
+                    betAmount
+                }}
+            />
         );
     };
 
@@ -496,79 +323,19 @@ export default function GameScreen() {
 
                 {/* Game Display Area */}
                 <View style={styles.gameArea}>
-                    {(round.status === 'RESULT' || round.status === 'SETTLED') && renderResult()}
-                    {renderAviatorLive()}
-                    {renderPokerLive()}
-                    {round.status === 'WAITING' && (
-                        <Text style={styles.waitingText}>⏳ Next round starting soon...</Text>
-                    )}
-                    {round.status === 'LOCKED' && slug !== 'aviator' && (
-                        <Text style={styles.waitingText}>🔒 Bets Locked! Preparing result...</Text>
-                    )}
-                    {round.status === 'PLAYING' && slug === 'seven-up-down' && (
-                        <Text style={styles.waitingText}>🎲 Rolling dice...</Text>
-                    )}
-                    {round.status === 'PLAYING' && slug === 'dragon-tiger' && (
-                        <Text style={styles.waitingText}>🃏 Dealing cards...</Text>
-                    )}
-                    {round.status === 'PLAYING' && slug === 'teen-patti' && (
-                        <Text style={styles.waitingText}>🃏 Dealing hands...</Text>
-                    )}
-                    {round.status === 'PLAYING' && slug === 'rummy' && (
-                        <Text style={styles.waitingText}>🀄 Evaluating rummy hands...</Text>
-                    )}
+                    {renderGameContent()}
                 </View>
 
                 {/* Bet Options */}
                 {round.status === 'BETTING' && (
-                    <View style={styles.betSection}>
-                        <Text style={styles.sectionTitle}>Place Your Bet</Text>
-
-                        <View style={styles.betOptions}>
-                            {betOptions.map((opt) => (
-                                <TouchableOpacity
-                                    key={opt.type}
-                                    style={[
-                                        styles.betCard,
-                                        { borderColor: opt.color },
-                                        selectedBet === opt.type && { backgroundColor: opt.color + '30', borderWidth: 2 },
-                                    ]}
-                                    onPress={() => setSelectedBet(opt.type)}
-                                >
-                                    <Text style={styles.betEmoji}>{opt.emoji}</Text>
-                                    <Text style={styles.betLabel}>{opt.label}</Text>
-                                    <Text style={[styles.betOdds, { color: opt.color }]}>{opt.odds}</Text>
-                                </TouchableOpacity>
-                            ))}
-                        </View>
-
-                        {/* Amount Input */}
-                        <View style={styles.amountRow}>
-                            <TextInput
-                                style={styles.amountInput}
-                                value={betAmount}
-                                onChangeText={setBetAmount}
-                                keyboardType="numeric"
-                                placeholder="Amount"
-                                placeholderTextColor="#666"
-                            />
-                            {[50, 100, 500, 1000].map((val) => (
-                                <TouchableOpacity key={val} style={styles.quickBtn} onPress={() => setBetAmount(val.toString())}>
-                                    <Text style={styles.quickBtnText}>₹{val}</Text>
-                                </TouchableOpacity>
-                            ))}
-                        </View>
-
-                        <TouchableOpacity
-                            style={[styles.placeBetBtn, !selectedBet && styles.disabledBtn]}
-                            onPress={placeBet}
-                            disabled={!selectedBet}
-                        >
-                            <Text style={styles.placeBetText}>
-                                Place Bet — ₹{betAmount} on {selectedBet || '...'}
-                            </Text>
-                        </TouchableOpacity>
-                    </View>
+                    <BetPanel
+                        options={betOptions}
+                        selectedBet={selectedBet}
+                        onSelectBet={setSelectedBet}
+                        betAmount={betAmount}
+                        onAmountChange={setBetAmount}
+                        onPlaceBet={placeBet}
+                    />
                 )}
 
                 {/* Settlement Info */}
@@ -604,52 +371,6 @@ const styles = StyleSheet.create({
         borderWidth: 1, borderColor: '#2D2D44', marginBottom: 16,
     },
     waitingText: { color: '#9CA3AF', fontSize: 18, textAlign: 'center' },
-    resultArea: { alignItems: 'center', gap: 8 },
-    resultEmoji: { fontSize: 48 },
-    resultValue: { color: '#9CA3AF', fontSize: 16 },
-    resultOutcome: { fontSize: 24, fontWeight: 'bold' },
-    resultText: { color: '#fff', fontSize: 14 },
-    vsRow: { flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center', width: '100%', gap: 8 },
-    vsText: { color: '#FFD700', fontSize: 20, fontWeight: 'bold' },
-    cardBox: { alignItems: 'center', backgroundColor: '#2D2D44', borderRadius: 12, padding: 12, flex: 1 },
-    cardLabel: { color: '#9CA3AF', fontSize: 12, marginBottom: 4 },
-    cardValue: { color: '#fff', fontSize: 20, fontWeight: 'bold' },
-    handRank: { color: '#8B5CF6', fontSize: 11, marginTop: 4, textAlign: 'center' },
-    communityCards: { color: '#FFD700', fontSize: 16, textAlign: 'center', marginTop: 8 },
-    multiplierText: { fontSize: 48, fontWeight: 'bold', color: '#fff' },
-    aviatorLive: { alignItems: 'center', gap: 12 },
-    planeEmoji: { fontSize: 64 },
-    cashoutBtn: {
-        backgroundColor: '#10B981', paddingVertical: 16, paddingHorizontal: 40,
-        borderRadius: 12, marginTop: 8,
-    },
-    cashoutText: { color: '#fff', fontSize: 20, fontWeight: 'bold' },
-    cashedOutText: { color: '#10B981', fontSize: 18, fontWeight: 'bold' },
-    pokerLive: { width: '100%', gap: 12 },
-    communityRow: { alignItems: 'center', gap: 4 },
-    betSection: { gap: 12 },
-    sectionTitle: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
-    betOptions: { flexDirection: 'row', justifyContent: 'space-between', gap: 8 },
-    betCard: {
-        flex: 1, backgroundColor: '#1A1A2E', borderRadius: 12, padding: 14,
-        alignItems: 'center', borderWidth: 1, gap: 4,
-    },
-    betEmoji: { fontSize: 28 },
-    betLabel: { color: '#fff', fontSize: 13, fontWeight: '600', textAlign: 'center' },
-    betOdds: { fontSize: 14, fontWeight: 'bold' },
-    amountRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-    amountInput: {
-        flex: 1, backgroundColor: '#1A1A2E', borderRadius: 10, padding: 12,
-        color: '#fff', fontSize: 16, borderWidth: 1, borderColor: '#2D2D44',
-    },
-    quickBtn: { backgroundColor: '#2D2D44', paddingVertical: 10, paddingHorizontal: 12, borderRadius: 8 },
-    quickBtnText: { color: '#8B5CF6', fontSize: 13, fontWeight: '600' },
-    placeBetBtn: {
-        backgroundColor: '#8B5CF6', borderRadius: 12, paddingVertical: 16,
-        alignItems: 'center',
-    },
-    disabledBtn: { opacity: 0.5 },
-    placeBetText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
     settlementBox: {
         backgroundColor: '#1A1A2E', borderRadius: 12, padding: 16, marginTop: 16,
         borderWidth: 1, borderColor: '#2D2D44', alignItems: 'center',

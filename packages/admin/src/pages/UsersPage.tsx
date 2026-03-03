@@ -23,6 +23,9 @@ export default function UsersPage() {
     const [search, setSearch] = useState('');
     const [loading, setLoading] = useState(true);
 
+    const adminUser = JSON.parse(localStorage.getItem('admin_user') || '{}');
+    const isSuperAdmin = adminUser.role === 'SUPER_ADMIN';
+
     useEffect(() => {
         loadUsers();
     }, []);
@@ -55,14 +58,26 @@ export default function UsersPage() {
         }
     };
 
+    const handleAssignParent = async (userId: string) => {
+        const parentId = prompt('Enter the ID of the Managing Admin:');
+        if (!parentId) return;
+        try {
+            await usersAPI.assignParent(userId, parentId);
+            alert('Parent assigned successfully!');
+            loadUsers(meta.page);
+        } catch (err: any) {
+            alert('Failed to assign parent: ' + (err.response?.data?.message || err.message));
+        }
+    };
+
     const formatDate = (dateStr: string) => new Date(dateStr).toLocaleDateString();
     const formatCurrency = (val: number) => `₹${(val || 0).toLocaleString()}`;
 
     return (
         <div className="page">
             <div className="page-header">
-                <h2>User Management</h2>
-                <p className="page-subtitle">{meta.total} total users</p>
+                <h2>{isSuperAdmin ? 'Global User Management' : 'Managed Users'}</h2>
+                <p className="page-subtitle">{meta.total} users {isSuperAdmin ? 'system-wide' : 'under your management'}</p>
             </div>
 
             <div className="card">
@@ -91,13 +106,14 @@ export default function UsersPage() {
                                         <th>Role</th>
                                         <th>Status</th>
                                         <th>Balance</th>
-                                        <th>Total Deposited</th>
+                                        {isSuperAdmin && <th>Manager</th>}
+                                        {isSuperAdmin && <th>Games</th>}
                                         <th>Joined</th>
                                         <th>Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {users.map((user) => (
+                                    {users.map((user: any) => (
                                         <tr key={user.id}>
                                             <td>
                                                 <div className="user-cell">
@@ -107,6 +123,7 @@ export default function UsersPage() {
                                                     <div>
                                                         <div className="user-cell-name">{user.displayName || 'No Name'}</div>
                                                         <div className="user-cell-email">{user.email}</div>
+                                                        <div className="user-cell-id">ID: {user.id}</div>
                                                     </div>
                                                 </div>
                                             </td>
@@ -121,10 +138,30 @@ export default function UsersPage() {
                                                 </span>
                                             </td>
                                             <td>{formatCurrency(user.wallet?.balance || 0)}</td>
-                                            <td>{formatCurrency(user.wallet?.totalDeposited || 0)}</td>
+                                            {isSuperAdmin && (
+                                                <td style={{ fontSize: '0.8rem', opacity: 0.7 }}>
+                                                    {user.parentAdminId || '-'}
+                                                </td>
+                                            )}
+                                            {isSuperAdmin && (
+                                                <td>
+                                                    {user.role === 'ADMIN' ? (
+                                                        <span className="badge badge-blue">
+                                                            {user._count?.serviceAllocations || 0}
+                                                        </span>
+                                                    ) : '-'}
+                                                </td>
+                                            )}
                                             <td>{formatDate(user.createdAt)}</td>
                                             <td>
                                                 <div className="action-buttons">
+                                                    {isSuperAdmin && user.role !== 'SUPER_ADMIN' && (
+                                                        <button
+                                                            className="btn-tiny"
+                                                            onClick={() => handleAssignParent(user.id)}
+                                                        >Assign Mgr</button>
+                                                    )}
+
                                                     {user.status === 'ACTIVE' && (
                                                         <>
                                                             <button

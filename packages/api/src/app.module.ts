@@ -11,10 +11,14 @@ import { GameModule } from './modules/games/game.module';
 import { AuditModule } from './modules/audit/audit.module';
 import { NotificationModule } from './modules/notification/notification.module';
 import { RedisModule } from './redis/redis.module';
+import { ServiceRegistryModule } from './modules/service-registry/service-registry.module';
+import { InternalModule } from './modules/internal/internal.module';
+import { ScheduleModule } from '@nestjs/schedule';
 import { AppController } from './app.controller';
 
 @Module({
   imports: [
+    ScheduleModule.forRoot(),
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: '.env',
@@ -33,6 +37,8 @@ import { AppController } from './app.controller';
     GameModule,
     AuditModule,
     NotificationModule,
+    ServiceRegistryModule,
+    InternalModule,
   ],
   controllers: [AppController],
 })

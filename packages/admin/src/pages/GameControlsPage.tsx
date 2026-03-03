@@ -122,7 +122,7 @@ export default function GameControlsPage() {
             </div>
 
             <p style={{ color: 'var(--text-secondary)', marginBottom: '1.5rem' }}>
-                ⚠️ SUPER_ADMIN only. All actions are logged in the audit trail.
+                ⚠️ Management actions are logged in the audit trail. You can only control games allocated to your account.
             </p>
 
             {/* Active Controls */}

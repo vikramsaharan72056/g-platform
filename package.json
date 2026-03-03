@@ -20,7 +20,9 @@
     "docker:down": "docker-compose -f docker/docker-compose.yml down",
     "e2e:functional": "playwright test -c tests/playwright/playwright.config.ts",
     "e2e:functional:report": "node tests/playwright/report/generate-functionality-report.mjs",
-    "e2e:functional:run": "npm run e2e:functional && npm run e2e:functional:report"
+    "e2e:functional:run": "npm run e2e:functional && npm run e2e:functional:report",
+    "aviator:dev": "cd apps/aviator/api && npm run start:dev",
+    "ludo:dev": "cd apps/ludo/api && npm run start:dev"
   },
   "devDependencies": {
     "@playwright/test": "^1.58.2"

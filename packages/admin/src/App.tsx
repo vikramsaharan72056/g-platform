@@ -11,8 +11,10 @@ import GamesPage from './pages/GamesPage';
 import GameControlsPage from './pages/GameControlsPage';
 import AnalyticsPage from './pages/AnalyticsPage';
 import AuditLogsPage from './pages/AuditLogsPage';
+import RegistryPage from './pages/RegistryPage';
 import SettingsPage from './pages/SettingsPage';
 import LiveMonitorPage from './pages/LiveMonitorPage';
+import MerchantReportsPage from './pages/MerchantReportsPage';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
     const { user, isLoading } = useAuth();
@@ -39,6 +41,8 @@ export default function App() {
                                 <Route path="/games" element={<GamesPage />} />
                                 <Route path="/game-controls" element={<GameControlsPage />} />
                                 <Route path="/analytics" element={<AnalyticsPage />} />
+                                <Route path="/registry" element={<RegistryPage />} />
+                                <Route path="/reports" element={<MerchantReportsPage />} />
                                 <Route path="/audit-logs" element={<AuditLogsPage />} />
                                 <Route path="/settings" element={<SettingsPage />} />
                                 <Route path="/live-monitor" element={<LiveMonitorPage />} />
